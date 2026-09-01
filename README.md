@@ -51,3 +51,28 @@ Purchase/GRN -> Stock In
 Branch Transfer -> Bangalore/Hosur adjustment
 
 For production use, replace localStorage with a shared database such as Supabase/PostgreSQL so Bangalore and Hosur users see the same live stock.
+
+
+## Secure login configuration on Vercel
+
+This application uses Vercel serverless functions and an HttpOnly signed session cookie. Login secrets are never committed to GitHub.
+
+Add these Production environment variables in Vercel:
+
+- `ADMIN_USERNAME` — the approved login username
+- `ADMIN_PASSWORD_HASH` — SHA-256 hash of the approved password
+- `SESSION_SECRET` — a random secret at least 32 characters long
+
+Generate a password hash locally without saving the plain password in source code:
+
+```powershell
+node -e "const c=require('crypto');const p=process.argv[1];console.log(c.createHash('sha256').update(p).digest('hex'))" "ENTER-YOUR-NEW-PASSWORD"
+```
+
+Generate a session secret:
+
+```powershell
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+After saving the variables, redeploy the latest Vercel deployment. Sessions expire after eight hours.

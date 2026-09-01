@@ -5,7 +5,7 @@ import {
   RefreshCw, Download, X, AlertTriangle, Boxes, IndianRupee, Tags,
   BarChart3, FileText, Calendar, Printer, ArrowRight, ArrowUpRight,
   ArrowDownRight, Layers, CheckCircle2, TrendingDown, Cloud, CloudOff,
-  Database, UploadCloud
+  Database, UploadCloud, LogIn, LogOut, ShieldCheck
 } from "lucide-react";
 import "./styles.css";
 import {
@@ -90,6 +90,44 @@ function getStartOfMonthString() {
 }
 
 function App(){
+  const [authStatus, setAuthStatus] = useState("checking");
+  const [loginForm, setLoginForm] = useState({ username:"", password:"" });
+  const [loginError, setLoginError] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/session", { credentials:"same-origin" })
+      .then(r => { if (!r.ok) throw new Error("Session unavailable"); return r.json(); })
+      .then(data => setAuthStatus(data.authenticated ? "authenticated" : "guest"))
+      .catch(() => setAuthStatus("guest"));
+  }, []);
+
+  async function handleLogin(e){
+    e.preventDefault();
+    setLoginBusy(true);
+    setLoginError("");
+    try {
+      const response = await fetch("/api/login", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        credentials:"same-origin",
+        body:JSON.stringify(loginForm)
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Unable to sign in");
+      setLoginForm({ username:"", password:"" });
+      setAuthStatus("authenticated");
+    } catch (err) {
+      setLoginError(err.message || "Invalid username or password");
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
+  async function handleLogout(){
+    await fetch("/api/logout", { method:"POST", credentials:"same-origin" }).catch(() => {});
+    setAuthStatus("guest");
+  }
   const [currentTab, setCurrentTab] = useState("inventory"); // "inventory" | "reports"
   const [reportType, setReportType] = useState("product-ledger"); // "product-ledger" | "all-movements" | "low-stock" | "monthly-statement"
 
@@ -964,7 +1002,21 @@ function App(){
     downloadCSV(`monthly-stock-comparison-${monthNames[monthVal - 1]}-${yearVal}.csv`, [...summaryRows, header, ...body]);
   }
 
+  if(authStatus !== "authenticated") {
+    return <LoginScreen
+      checking={authStatus === "checking"}
+      form={loginForm}
+      setForm={setLoginForm}
+      error={loginError}
+      busy={loginBusy}
+      onSubmit={handleLogin}
+    />;
+  }
+
   return <div className="app">
+    <button className="auth-logout" type="button" onClick={handleLogout} title="Sign out securely">
+      <LogOut size={15}/> Logout
+    </button>
     <header className="topbar">
       <div className="brand">
         <img 
@@ -2136,6 +2188,36 @@ function SearchableProductSelect({ products, value, onChange, branch, movementTy
       )}
     </div>
   );
+}
+
+function LoginScreen({ checking, form, setForm, error, busy, onSubmit }){
+  return <main className="login-page">
+    <section className="login-card" aria-label="Inventory login">
+      <div className="login-brand">
+        <img src="/logo.png" alt="Hertz & Bytes Technologies"/>
+        <div>
+          <strong>Hertz & Bytes Technologies</strong>
+          <span>Inventory Management System</span>
+        </div>
+      </div>
+      <div className="login-shield"><ShieldCheck size={24}/></div>
+      <h1>{checking ? "Checking session…" : "Welcome back"}</h1>
+      <p>{checking ? "Please wait while we verify your secure session." : "Sign in to access product inventory and stock movements."}</p>
+      {!checking && <form className="login-form" onSubmit={onSubmit}>
+        <Field label="Username">
+          <input autoFocus autoComplete="username" required value={form.username} onChange={e=>setForm({...form,username:e.target.value})} placeholder="Enter username"/>
+        </Field>
+        <Field label="Password">
+          <input type="password" autoComplete="current-password" required value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="Enter password"/>
+        </Field>
+        {error && <div className="login-error" role="alert">{error}</div>}
+        <button className="primary login-submit" disabled={busy}>
+          <LogIn size={17}/> {busy ? "Signing in…" : "Login"}
+        </button>
+      </form>}
+      <small className="login-note">Authorised users only</small>
+    </section>
+  </main>
 }
 
 function emptyForm(){return {name:"",brand:"",category:"",unit:"Nos",purchase:0,sale:0,min:5,bangalore:0,hosur:0}}
