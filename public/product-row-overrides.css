@@ -1,37 +1,38 @@
-/* Product inventory row refinements requested for Hertz & Bytes. */
-/* Keep internal product IDs for database/movement integrity, but do not display them in the inventory product row. */
-main > section.panel:first-of-type .table-wrap table tbody td:first-child > small {
+/* Product / Inventory table refinements for Hertz & Bytes.
+   The first .panel inside main is the inventory table panel after the title and metric cards.
+   Use :nth-of-type(2) because the metric cards section is the first <section> in <main>. */
+main > section.panel:nth-of-type(2) .table-wrap table tbody td:first-child > small {
   display: none;
 }
 
-/* Keep long product descriptions from consuming the full table width. */
-main > section.panel:first-of-type .table-wrap table {
+/* Keep long product names compact instead of stretching the table. */
+main > section.panel:nth-of-type(2) .table-wrap table {
   table-layout: fixed;
   width: 100%;
 }
 
-main > section.panel:first-of-type .table-wrap table th:first-child,
-main > section.panel:first-of-type .table-wrap table td:first-child {
+main > section.panel:nth-of-type(2) .table-wrap table th:first-child,
+main > section.panel:nth-of-type(2) .table-wrap table td:first-child {
   width: 25%;
   max-width: 360px;
 }
 
-main > section.panel:first-of-type .table-wrap table td:first-child > strong {
+main > section.panel:nth-of-type(2) .table-wrap table td:first-child > strong {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Keep Category and Brand visible, while removing the Unit column from the inventory list only. */
-main > section.panel:first-of-type .table-wrap table th:nth-child(4),
-main > section.panel:first-of-type .table-wrap table td:nth-child(4) {
+/* Keep Category and Brand visible. Hide only Unit in this inventory table. */
+main > section.panel:nth-of-type(2) .table-wrap table th:nth-child(4),
+main > section.panel:nth-of-type(2) .table-wrap table td:nth-child(4) {
   display: none;
 }
 
-/* Keep product-row actions clearly aligned at the right edge. */
-main > section.panel:first-of-type .table-wrap table th:last-child,
-main > section.panel:first-of-type .table-wrap table td.actions:last-child {
+/* Keep Edit / Delete actions on the far right. */
+main > section.panel:nth-of-type(2) .table-wrap table th:last-child,
+main > section.panel:nth-of-type(2) .table-wrap table td.actions:last-child {
   text-align: right;
   white-space: nowrap;
 }
