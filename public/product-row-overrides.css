@@ -1,0 +1,12 @@
+/* Product inventory row refinements requested for Hertz & Bytes. */
+/* Keep internal product IDs for database/movement integrity, but do not display them in the inventory product row. */
+main > section.panel .table-wrap table tbody td:first-child > small {
+  display: none;
+}
+
+/* Keep product-row actions clearly aligned at the right edge. */
+main > section.panel .table-wrap table th:last-child,
+main > section.panel .table-wrap table td.actions:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
