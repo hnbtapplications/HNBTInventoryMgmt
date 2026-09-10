@@ -11,16 +11,67 @@ let cachedClient=null,lastUrl="",lastKey="";
 export function getSupabase(){const{url,key}=getSupabaseCredentials();if(!url||!key)return null;if(cachedClient&&lastUrl===url&&lastKey===key)return cachedClient;try{cachedClient=createClient(url,key);lastUrl=url;lastKey=key;return cachedClient}catch(err){console.error("Failed to initialize Supabase client:",err);return null}}
 export function isSupabaseConfigured(){const{url,key}=getSupabaseCredentials();return Boolean(url&&key)}
 export function saveSupabaseCredentials(url,key){if(url)localStorage.setItem("hb_supabase_url",url.trim());else localStorage.removeItem("hb_supabase_url");if(key)localStorage.setItem("hb_supabase_key",key.trim());else localStorage.removeItem("hb_supabase_key");cachedClient=null;lastUrl="";lastKey=""}
-export async function fetchProductsFromDB(){const s=getSupabase();if(!s)return null;try{const{data,error}=await s.from("products").select("*").order("created_at",{ascending:true});if(error)throw error;return data||[]}catch(err){console.error("Error fetching products from Supabase:",err);return null}}
-export async function upsertProductToDB(product){const s=getSupabase();if(!s)return false;try{const payload={id:product.id,name:product.name,brand:product.brand||"",category:product.category||"",unit:product.unit||"Nos",purchase:Number(product.purchase)||0,sale:Number(product.sale)||0,min:Number(product.min)||5,bangalore:Number(product.bangalore)||0,hosur:Number(product.hosur)||0};const{error}=await s.from("products").upsert(payload);if(error)throw error;return true}catch(err){console.error("Error saving product to Supabase:",err);return false}}
-export async function deleteProductFromDB(id){const s=getSupabase();if(!s)return false;try{const{error}=await s.from("products").delete().eq("id",id);if(error)throw error;return true}catch(err){console.error("Error deleting product from Supabase:",err);return false}}
-export async function fetchMovementsFromDB(){const s=getSupabase();if(!s)return null;try{const{data,error}=await s.from("movements").select("*").order("timestamp",{ascending:false});if(error)throw error;return data||[]}catch(err){console.error("Error fetching movements from Supabase:",err);return null}}
-export async function upsertMovementToDB(movement){const s=getSupabase();if(!s)return false;try{const payload={id:movement.id,timestamp:movement.timestamp||movement.id,date:movement.date,type:movement.type,productId:movement.productId||"",product:movement.product||"",branch:movement.branch||"Bangalore",qty:Number(movement.qty)||0,note:movement.note||""};const{error}=await s.from("movements").upsert(payload);if(error)throw error;return true}catch(err){console.error("Error saving movement to Supabase:",err);return false}}
-export async function deleteMovementFromDB(id){const s=getSupabase();if(!s)return false;try{const{error}=await s.from("movements").delete().eq("id",id);if(error)throw error;return true}catch(err){console.error("Error deleting movement from Supabase:",err);return false}}
 
-// Application-level audit history. The audit_logs table is append-only for normal users via RLS.
+async function currentActor(){
+  try{
+    const r=await fetch("/api/session",{credentials:"same-origin",cache:"no-store"});
+    if(!r.ok)return "Unknown";
+    const d=await r.json();
+    return d?.user?.username || "Unknown";
+  }catch{return "Unknown"}
+}
+async function appendAudit(entry){
+  const s=getSupabase(); if(!s)return false;
+  try{
+    const actor=entry.actor || await currentActor();
+    const payload={actor:String(actor||"Unknown"),action:String(entry.action||"UNKNOWN"),entity_type:String(entry.entity_type||"inventory"),entity_id:String(entry.entity_id||""),entity_name:String(entry.entity_name||""),branch:String(entry.branch||""),old_value:entry.old_value??null,new_value:entry.new_value??null,details:String(entry.details||"")};
+    const{error}=await s.from("audit_logs").insert(payload); if(error)throw error; return true;
+  }catch(err){console.error("Error writing audit log:",err);return false}
+}
+
+export async function fetchProductsFromDB(){const s=getSupabase();if(!s)return null;try{const{data,error}=await s.from("products").select("*").order("created_at",{ascending:true});if(error)throw error;return data||[]}catch(err){console.error("Error fetching products from Supabase:",err);return null}}
+export async function upsertProductToDB(product){
+  const s=getSupabase();if(!s)return false;
+  try{
+    const payload={id:product.id,name:product.name,brand:product.brand||"",category:product.category||"",unit:product.unit||"Nos",purchase:Number(product.purchase)||0,sale:Number(product.sale)||0,min:Number(product.min)||5,bangalore:Number(product.bangalore)||0,hosur:Number(product.hosur)||0};
+    const{data:existing,error:readError}=await s.from("products").select("*").eq("id",payload.id).maybeSingle(); if(readError)throw readError;
+    const{error}=await s.from("products").upsert(payload);if(error)throw error;
+    await appendAudit({action:existing?"PRODUCT_UPDATED":"PRODUCT_ADDED",entity_type:"product",entity_id:payload.id,entity_name:payload.name,branch:"All",old_value:existing||null,new_value:payload,details:existing?"Product details or stock balance updated":"New product added"});
+    return true;
+  }catch(err){console.error("Error saving product to Supabase:",err);return false}
+}
+export async function deleteProductFromDB(id){
+  const s=getSupabase();if(!s)return false;
+  try{
+    const{data:existing,error:readError}=await s.from("products").select("*").eq("id",id).maybeSingle();if(readError)throw readError;
+    const{error}=await s.from("products").delete().eq("id",id);if(error)throw error;
+    await appendAudit({action:"PRODUCT_DELETED",entity_type:"product",entity_id:id,entity_name:existing?.name||id,branch:"All",old_value:existing||null,new_value:null,details:"Product deleted from catalog"});
+    return true;
+  }catch(err){console.error("Error deleting product from Supabase:",err);return false}
+}
+export async function fetchMovementsFromDB(){const s=getSupabase();if(!s)return null;try{const{data,error}=await s.from("movements").select("*").order("timestamp",{ascending:false});if(error)throw error;return data||[]}catch(err){console.error("Error fetching movements from Supabase:",err);return null}}
+export async function upsertMovementToDB(movement){
+  const s=getSupabase();if(!s)return false;
+  try{
+    const payload={id:movement.id,timestamp:movement.timestamp||movement.id,date:movement.date,type:movement.type,productId:movement.productId||"",product:movement.product||"",branch:movement.branch||"Bangalore",qty:Number(movement.qty)||0,note:movement.note||""};
+    const{data:existing,error:readError}=await s.from("movements").select("*").eq("id",payload.id).maybeSingle();if(readError)throw readError;
+    const{error}=await s.from("movements").upsert(payload);if(error)throw error;
+    await appendAudit({action:existing?"MOVEMENT_UPDATED":payload.type==="OUT"?"STOCK_OUT":"STOCK_IN",entity_type:"movement",entity_id:String(payload.id),entity_name:payload.product,branch:payload.branch,old_value:existing||null,new_value:payload,details:existing?"Stock movement edited":`${payload.type} ${payload.qty} ${payload.product}`});
+    return true;
+  }catch(err){console.error("Error saving movement to Supabase:",err);return false}
+}
+export async function deleteMovementFromDB(id){
+  const s=getSupabase();if(!s)return false;
+  try{
+    const{data:existing,error:readError}=await s.from("movements").select("*").eq("id",id).maybeSingle();if(readError)throw readError;
+    const{error}=await s.from("movements").delete().eq("id",id);if(error)throw error;
+    await appendAudit({action:"MOVEMENT_DELETED",entity_type:"movement",entity_id:String(id),entity_name:existing?.product||String(id),branch:existing?.branch||"",old_value:existing||null,new_value:null,details:"Stock movement deleted and stock balance reversed"});
+    return true;
+  }catch(err){console.error("Error deleting movement from Supabase:",err);return false}
+}
+
 export async function fetchAuditLogsFromDB(limit=500){const s=getSupabase();if(!s)return null;try{const{data,error}=await s.from("audit_logs").select("*").order("created_at",{ascending:false}).limit(limit);if(error)throw error;return data||[]}catch(err){console.error("Error fetching audit logs:",err);return null}}
-export async function writeAuditLogToDB(entry){const s=getSupabase();if(!s)return false;try{const payload={actor:String(entry.actor||"Unknown"),action:String(entry.action||"UNKNOWN"),entity_type:String(entry.entity_type||"inventory"),entity_id:String(entry.entity_id||""),entity_name:String(entry.entity_name||""),branch:String(entry.branch||""),old_value:entry.old_value||null,new_value:entry.new_value||null,details:String(entry.details||"")};const{error}=await s.from("audit_logs").insert(payload);if(error)throw error;return true}catch(err){console.error("Error writing audit log:",err);return false}}
+export async function writeAuditLogToDB(entry){return appendAudit(entry)}
 
 export async function fetchMastersFromDB(){const s=getSupabase();if(!s)return null;try{const[bRes,cRes,uRes]=await Promise.all([s.from("brands").select("name"),s.from("categories").select("name"),s.from("units").select("name")]);return{brands:bRes.data?bRes.data.map(i=>i.name):null,categories:cRes.data?cRes.data.map(i=>i.name):null,units:uRes.data?uRes.data.map(i=>i.name):null}}catch(err){console.error("Error fetching masters from Supabase:",err);return null}}
 export async function saveMasterItemToDB(table,name){const s=getSupabase();if(!s)return false;try{const{error}=await s.from(table).upsert({name});if(error)throw error;return true}catch(err){console.error(`Error saving to ${table} in Supabase:`,err);return false}}
