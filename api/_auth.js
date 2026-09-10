@@ -28,23 +28,28 @@ function signature(value) {
 
 export function createSession(username) {
   const payload = Buffer.from(JSON.stringify({
-    sub: username,
+    sub: String(username).trim(),
     exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS
   })).toString("base64url");
   return `${payload}.${signature(payload)}`;
 }
 
-export function verifySession(token) {
-  if (!token || !token.includes(".")) return false;
+export function getSession(token) {
+  if (!token || !token.includes(".")) return null;
   const [payload, supplied] = token.split(".");
   const expected = signature(payload);
-  if (!expected || !safeEqual(supplied, expected)) return false;
+  if (!expected || !safeEqual(supplied, expected)) return null;
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
-    return Boolean(data.sub) && Number(data.exp) > Math.floor(Date.now() / 1000);
+    if (!data.sub || Number(data.exp) <= Math.floor(Date.now() / 1000)) return null;
+    return { username:String(data.sub), expiresAt:Number(data.exp) };
   } catch {
-    return false;
+    return null;
   }
+}
+
+export function verifySession(token) {
+  return Boolean(getSession(token));
 }
 
 export function readSessionCookie(req) {
