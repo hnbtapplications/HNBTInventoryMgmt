@@ -6,9 +6,29 @@
     <link rel="icon" type="image/png" href="/logo.png" />
     <link rel="stylesheet" href="/product-row-overrides.css" />
     <title>Hertz & Bytes Technologies - Inventory Management System</title>
+    <style>
+      #audit-log-shortcut{position:fixed;right:118px;bottom:16px;z-index:9998;display:none;align-items:center;gap:7px;padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#17324d;text-decoration:none;font:600 14px Inter,Arial,sans-serif;box-shadow:0 4px 14px rgba(15,23,42,.12)}
+      #audit-log-shortcut:hover{background:#f1f5f9}
+      @media(max-width:720px){#audit-log-shortcut{right:16px;bottom:70px}}
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <a id="audit-log-shortcut" href="/audit-logs.html" title="View employee activity history" aria-label="Open Audit Logs">🛡️ Audit Logs</a>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      (function(){
+        const link=document.getElementById('audit-log-shortcut');
+        async function syncAuditLink(){
+          try{
+            const r=await fetch('/api/session',{credentials:'same-origin',cache:'no-store'});
+            const d=await r.json();
+            link.style.display=d.authenticated?'inline-flex':'none';
+          }catch(e){link.style.display='none'}
+        }
+        syncAuditLink();
+        setInterval(syncAuditLink,5000);
+      })();
+    </script>
   </body>
 </html>
