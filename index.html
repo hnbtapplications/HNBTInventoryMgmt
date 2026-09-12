@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="/product-row-overrides.css" />
     <title>Hertz & Bytes Technologies - Inventory Management System</title>
     <style>
-      #audit-log-shortcut{position:fixed;right:118px;bottom:16px;z-index:9998;display:none;align-items:center;gap:7px;padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#17324d;text-decoration:none;font:600 14px Inter,Arial,sans-serif;box-shadow:0 4px 14px rgba(15,23,42,.12)}
-      #audit-log-shortcut:hover{background:#f1f5f9}
+      #audit-log-shortcut{position:fixed;right:118px;bottom:16px;z-index:9998;display:none;align-items:center;gap:7px;padding:10px 14px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:#17324d;text-decoration:none;font:600 14px Inter,Arial,sans-serif;box-shadow:0 4px 14px rgba(15,23,42,.12)}#audit-log-shortcut:hover{background:#f1f5f9}
+      #force-password-overlay{position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.78);display:grid;place-items:center;padding:20px}.force-password-card{width:min(460px,100%);background:#fff;border-radius:16px;padding:28px;box-shadow:0 24px 70px rgba(0,0,0,.28);font-family:Inter,Arial,sans-serif}.force-password-card h2{margin:0 0 8px;color:#0f172a}.force-password-card p{color:#64748b}.force-password-card form{display:grid;gap:12px}.force-password-card input{padding:12px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px}.force-password-card button{padding:12px;border:0;border-radius:9px;background:#005bac;color:white;font-weight:700;cursor:pointer}.force-password-error{color:#b91c1c;font-size:13px;min-height:18px}
       @media(max-width:720px){#audit-log-shortcut{right:16px;bottom:70px}}
     </style>
   </head>
@@ -16,19 +16,6 @@
     <div id="root"></div>
     <a id="audit-log-shortcut" href="/audit-logs.html" title="View employee activity history" aria-label="Open Audit Logs">🛡️ Audit Logs</a>
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-      (function(){
-        const link=document.getElementById('audit-log-shortcut');
-        async function syncAuditLink(){
-          try{
-            const r=await fetch('/api/session',{credentials:'same-origin',cache:'no-store'});
-            const d=await r.json();
-            link.style.display=d.authenticated?'inline-flex':'none';
-          }catch(e){link.style.display='none'}
-        }
-        syncAuditLink();
-        setInterval(syncAuditLink,5000);
-      })();
-    </script>
+    <script type="module" src="/src/access-bootstrap.js"></script>
   </body>
 </html>
