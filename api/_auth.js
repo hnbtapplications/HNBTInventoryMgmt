@@ -26,9 +26,17 @@ function signature(value) {
   return crypto.createHmac("sha256", secret).update(value).digest("base64url");
 }
 
-export function createSession(username) {
+export function createSession(user) {
+  const info=typeof user==="string"?{username:String(user).trim(),role:"admin",branch:"Both",mode:"admin"}:{...(user||{})};
   const payload = Buffer.from(JSON.stringify({
-    sub: String(username).trim(),
+    sub:String(info.username||info.full_name||"").trim(),
+    username:String(info.username||"").trim(),
+    full_name:String(info.full_name||info.username||"").trim(),
+    role:info.role||"employee",
+    branch:info.branch||"Both",
+    mode:info.mode||"employee",
+    permissions:info.permissions||{},
+    force_password_change:Boolean(info.force_password_change),
     exp: Math.floor(Date.now() / 1000) + SESSION_SECONDS
   })).toString("base64url");
   return `${payload}.${signature(payload)}`;
@@ -42,33 +50,14 @@ export function getSession(token) {
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     if (!data.sub || Number(data.exp) <= Math.floor(Date.now() / 1000)) return null;
-    return { username:String(data.sub), expiresAt:Number(data.exp) };
+    return data;
   } catch {
     return null;
   }
 }
 
-export function verifySession(token) {
-  return Boolean(getSession(token));
-}
-
-export function readSessionCookie(req) {
-  const cookies = String(req.headers.cookie || "").split(";");
-  for (const item of cookies) {
-    const [name, ...value] = item.trim().split("=");
-    if (name === COOKIE_NAME) return decodeURIComponent(value.join("="));
-  }
-  return "";
-}
-
-export function sessionCookie(token) {
-  return `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_SECONDS}`;
-}
-
-export function clearSessionCookie() {
-  return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`;
-}
-
-export function isAuthConfigured() {
-  return Boolean(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD_HASH && (process.env.SESSION_SECRET || "").length >= 32);
-}
+export function verifySession(token) { return Boolean(getSession(token)); }
+export function readSessionCookie(req) { const cookies=String(req.headers.cookie||"").split(";");for(const item of cookies){const[name,...value]=item.trim().split("=");if(name===COOKIE_NAME)return decodeURIComponent(value.join("="));}return ""; }
+export function sessionCookie(token) { return `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_SECONDS}`; }
+export function clearSessionCookie() { return `${COOKIE_NAME}=; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=0`; }
+export function isAuthConfigured() { return Boolean(process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD_HASH && (process.env.SESSION_SECRET || "").length >= 32); }
