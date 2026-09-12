@@ -1,35 +1,3 @@
-import { readSessionCookie, verifySession } from "./_auth.js";
-
-function send(res,status,payload){res.status(status).json(payload)}
-function cleanUsername(value){return String(value||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"")}
-function internalEmail(username){return `${username}@hnbt.local`}
-
-export default async function handler(req,res){
-  if(req.method!=="POST")return send(res,405,{error:"Method not allowed"});
-  if(!verifySession(readSessionCookie(req)))return send(res,401,{error:"Administrator login required"});
-
-  const url=String(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||"").replace(/\/$/,"");
-  const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY||"";
-  if(!url||!serviceKey)return send(res,503,{error:"Supabase admin service is not configured"});
-
-  const {username,password,full_name,branch="Both",role="employee"}=req.body||{};
-  const loginId=cleanUsername(username);
-  if(!loginId||!password||!full_name)return send(res,400,{error:"Name, username and password are required"});
-  if(loginId.length<3)return send(res,400,{error:"Username must be at least 3 characters"});
-  if(String(password).length<8)return send(res,400,{error:"Password must be at least 8 characters"});
-  if(!["Bangalore","Hosur","Both"].includes(branch))return send(res,400,{error:"Invalid branch"});
-  if(!["admin","employee"].includes(role))return send(res,400,{error:"Invalid role"});
-
-  try{
-    const email=internalEmail(loginId);
-    const authResp=await fetch(`${url}/auth/v1/admin/users`,{method:"POST",headers:{apikey:serviceKey,Authorization:`Bearer ${serviceKey}`,"Content-Type":"application/json"},body:JSON.stringify({email,password:String(password),email_confirm:true,user_metadata:{full_name:String(full_name).trim(),username:loginId,force_password_change:true}})});
-    const authData=await authResp.json();
-    if(!authResp.ok)return send(res,authResp.status,{error:authData?.msg||authData?.message||"Unable to create employee"});
-    const isAdmin=role==="admin";
-    const profile={user_id:authData.id,full_name:String(full_name).trim(),role,branch,active:true,can_manage_products:isAdmin,can_stock_movement:true,can_view_reports:true,can_manage_masters:isAdmin,can_view_audit_logs:isAdmin,can_manage_users:isAdmin};
-    const profileResp=await fetch(`${url}/rest/v1/employee_profiles`,{method:"POST",headers:{apikey:serviceKey,Authorization:`Bearer ${serviceKey}`,"Content-Type":"application/json",Prefer:"return=representation"},body:JSON.stringify(profile)});
-    const profileData=await profileResp.json();
-    if(!profileResp.ok){await fetch(`${url}/auth/v1/admin/users/${authData.id}`,{method:"DELETE",headers:{apikey:serviceKey,Authorization:`Bearer ${serviceKey}`}}).catch(()=>{});return send(res,500,{error:profileData?.message||"Employee profile creation failed"})}
-    return send(res,201,{ok:true,user:{id:authData.id,username:loginId},profile:profileData?.[0]||profile});
-  }catch(err){return send(res,500,{error:err?.message||"Unable to create employee"})}
-}
+import{getSession,readSessionCookie}from"./_auth.js";
+function send(res,status,payload){res.status(status).json(payload)}function cleanUsername(value){return String(value||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"")}function internalEmail(username){return`${username}@hnbt.local`}
+export default async function handler(req,res){if(req.method!=="POST")return send(res,405,{error:"Method not allowed"});const session=getSession(readSessionCookie(req));if(!session||(session.role!=="admin"&&!session.permissions?.can_manage_users))return send(res,403,{error:"User management permission required"});const url=String(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||"").replace(/\/$/,"");const serviceKey=process.env.SUPABASE_SERVICE_ROLE_KEY||"";if(!url||!serviceKey)return send(res,503,{error:"Supabase admin service is not configured"});const{username,password,full_name,branch="Both",role="employee"}=req.body||{};const loginId=cleanUsername(username);if(!loginId||!password||!full_name)return send(res,400,{error:"Name, username and password are required"});if(loginId.length<3)return send(res,400,{error:"Username must be at least 3 characters"});if(String(password).length<8)return send(res,400,{error:"Password must be at least 8 characters"});if(!["Bangalore","Hosur","Both"].includes(branch))return send(res,400,{error:"Invalid branch"});if(!["admin","employee"].includes(role))return send(res,400,{error:"Invalid role"});try{const email=internalEmail(loginId);const authResp=await fetch(`${url}/auth/v1/admin/users`,{method:"POST",headers:{apikey:serviceKey,Authorization:`Bearer ${serviceKey}`,"Content-Type":"application/json"},body:JSON.stringify({email,password:String(password),email_confirm:true,user_metadata:{full_name:String(full_name).trim(),username:loginId,force_password_change:true}})});const authData=await authResp.json();if(!authResp.ok)return send(res,authResp.status,{error:authData?.msg||authData?.message||"Unable to create employee"});const isAdmin=role==="admin";const profile={user_id:authData.id,full_name:String(full_name).trim(),role,branch,active:true,can_manage_products:isAdmin,can_stock_movement:true,can_view_reports:true,can_manage_masters:isAdmin,can_view_audit_logs:isAdmin,can_manage_users:isAdmin};const profileResp=await fetch(`${url}/rest/v1/employee_profiles`,{method:"POST",headers:{apikey:serviceKey,Authorization:`Bearer ${serviceKey}`,"Content-Type":"application/json",Prefer:"return=representation"},body:JSON.stringify(profile)});const profileData=await profileResp.json();if(!profileResp.ok){await fetch(`${url}/auth/v1/admin/users/${authData.id}`,{method:"DELETE",headers:{apikey:serviceKey,Authorization:`Bearer ${serviceKey}`}}).catch(()=>{});return send(res,500,{error:profileData?.message||"Employee profile creation failed"})}return send(res,201,{ok:true,user:{id:authData.id,username:loginId},profile:profileData?.[0]||profile})}catch(err){return send(res,500,{error:err?.message||"Unable to create employee"})}}
