@@ -1,59 +1,63 @@
-/* Report table visibility fix: keep Low Stock and Monthly Comparison details on-screen on desktop. */
-@media (min-width: 1100px) {
-  .reports-container .table-wrap {
-    overflow-x: hidden !important;
-    width: 100%;
-  }
+/* Responsive report tables: readable desktop reports without horizontal scrolling. */
+@media (min-width:1100px){
+  .reports-container .table-wrap{overflow-x:hidden!important;width:100%}
+  .reports-container .table-wrap table{width:100%!important;min-width:0!important;table-layout:fixed!important}
+  .reports-container .table-wrap th,.reports-container .table-wrap td{white-space:normal!important;overflow-wrap:normal;word-break:normal;padding:8px 6px!important;font-size:11px!important;line-height:1.25;vertical-align:middle}
+  .reports-container .table-wrap th{font-size:9.5px!important;line-height:1.15}
+  .reports-container .table-wrap td:first-child strong,.reports-container .table-wrap td:first-child small{white-space:normal!important;overflow-wrap:break-word;word-break:normal}
+  .reports-container .badge-in,.reports-container .badge-out,.reports-container .badge-diff-pos,.reports-container .badge-diff-neg,.reports-container .tag,.reports-container .status{white-space:nowrap!important}
 
-  .reports-container .table-wrap table {
-    width: 100% !important;
-    min-width: 0 !important;
-    table-layout: fixed !important;
-  }
+  /* Monthly Stock Comparison: simplify the visible table to the operational fields only. */
+  .reports-container .panel:has(.pnl-container) .table-wrap table{table-layout:fixed!important}
 
-  .reports-container .table-wrap th,
-  .reports-container .table-wrap td {
-    white-space: normal !important;
-    overflow-wrap: anywhere;
-    word-break: normal;
-    padding: 9px 7px !important;
-    font-size: 11px !important;
-    line-height: 1.25;
-    vertical-align: middle;
-  }
+  /* Hide Category, Brand and Unit from the monthly screen view. */
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(2),
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(3),
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(4),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(2),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(3),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(4){display:none!important}
 
-  .reports-container .table-wrap th {
-    font-size: 9.5px !important;
-    line-height: 1.2;
-  }
+  /* The grouped header uses old colspans, so hide it on screen; the second header row is clearer and avoids wasted width. */
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:first-child{display:none!important}
 
-  /* Product identity needs a little more room; numeric/report columns share the rest. */
-  .reports-container .table-wrap th:first-child,
-  .reports-container .table-wrap td:first-child {
-    width: 15%;
-    min-width: 0 !important;
-  }
+  /* Explicit desktop widths. Product gets priority; movement/difference/branch columns stay compact. */
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(1),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(1){width:17%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(5),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(5){width:6%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(6),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(6){width:6%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(7),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(7){width:8%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(8),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(8){width:5%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(9),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(9){width:5%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(10),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(10){width:6%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(11),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(11){width:8%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(12),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(12){width:5%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(13),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(13){width:7%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(14),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(14){width:9%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(15),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(15){width:6.5%!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap thead tr:nth-child(2)>th:nth-child(16),
+  .reports-container .panel:has(.pnl-container) .table-wrap tbody>tr>td:nth-child(16){width:6.5%!important}
 
-  .reports-container .table-wrap td:first-child strong,
-  .reports-container .table-wrap td:first-child small {
-    white-space: normal !important;
-    overflow-wrap: anywhere;
-  }
+  .reports-container .panel:has(.pnl-container) .table-wrap td:first-child strong{display:block;font-size:12px!important;line-height:1.25;overflow-wrap:normal!important;word-break:normal!important}
+  .reports-container .panel:has(.pnl-container) .table-wrap td:first-child small{font-size:9px!important;line-height:1.2;margin-top:3px}
+  .reports-container .panel:has(.pnl-container) .table-wrap td:nth-child(n+5){white-space:nowrap!important;overflow-wrap:normal!important}
 
-  .reports-container .badge-in,
-  .reports-container .badge-out,
-  .reports-container .badge-diff-pos,
-  .reports-container .badge-diff-neg,
-  .reports-container .tag,
-  .reports-container .status {
-    white-space: nowrap !important;
-  }
+  /* Keep summary cards compact and balanced. */
+  .reports-container .panel:has(.pnl-container) .pnl-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:10px}
+  .reports-container .panel:has(.pnl-container) .pnl-card{min-width:0;padding:11px 12px}
 }
 
-/* Smaller screens still get normal horizontal scrolling rather than crushed columns. */
-@media (max-width: 1099px) {
-  .reports-container .table-wrap {
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
+@media (max-width:1099px){
+  .reports-container .table-wrap{overflow-x:auto!important;-webkit-overflow-scrolling:touch}
 }
