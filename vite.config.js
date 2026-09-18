@@ -8,7 +8,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: resolve(process.cwd(), 'index.html'),
-        userManagement: resolve(process.cwd(), 'user-management.html')
+        userManagement: resolve(process.cwd(), 'user-management.html'),
+        refurbishedLaptop: resolve(process.cwd(), 'refurbished-laptop.html')
       }
     }
   }
