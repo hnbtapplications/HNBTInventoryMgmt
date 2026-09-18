@@ -10,3 +10,8 @@ export async function fetchMovements(laptops){return(await api("movements")||[])
 export async function insertMovement(x){return await api("movement-save",{method:"POST",body:{movement:x}})}
 export async function updateMovement(x){return await api("movement-correct",{method:"POST",body:{movement:x}})}
 export async function audit(){return true}
+export async function fetchUsers(){const r=await fetch("/api/user-admin?action=list",{credentials:"same-origin",cache:"no-store"});const d=await r.json().catch(()=>null);if(!r.ok)throw new Error(d?.error||"Unable to load users");return d.users||[]}
+async function userAdmin(action,body){const r=await fetch(`/api/user-admin?action=${encodeURIComponent(action)}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json().catch(()=>null);if(!r.ok)throw new Error(d?.error||"User management request failed");return d}
+export async function createUser(v){return userAdmin("create",v)}
+export async function updateUser(v){return userAdmin("update",v)}
+export async function resetUserPassword(user_id,password){return userAdmin("reset-password",{user_id,password})}
