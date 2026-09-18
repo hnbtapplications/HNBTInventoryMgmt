@@ -4,6 +4,6 @@
   "rewrites": [
     { "source": "/refurbished-laptop", "destination": "/refurbished-laptop.html" },
     { "source": "/refurbished-laptop/", "destination": "/refurbished-laptop.html" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api(?:/|$)).*)", "destination": "/index.html" }
   ]
 }
