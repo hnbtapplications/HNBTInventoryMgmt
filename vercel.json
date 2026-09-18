@@ -2,9 +2,8 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/refurbished-laptop", "destination": "/refurbished-laptop.html" },
+    { "source": "/refurbished-laptop/", "destination": "/refurbished-laptop.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
