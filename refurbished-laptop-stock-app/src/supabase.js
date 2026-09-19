@@ -7,6 +7,7 @@ export async function fetchLaptops(){return await api("laptops")}
 export async function upsertLaptop(x){return await api("laptop-save",{method:"POST",body:{item:x}})}
 export async function deleteLaptop(x){return await api("laptop-delete",{method:"POST",body:{id:x.__dbId}})}
 export async function fetchMovements(laptops){return(await api("movements")||[]).map(r=>toMovement(r,laptops))}
+export async function fetchAuditLog(){return await api("audit-log")}
 export async function insertMovement(x){return await api("movement-save",{method:"POST",body:{movement:x}})}
 export async function updateMovement(x){return await api("movement-correct",{method:"POST",body:{movement:x}})}
 export async function audit(){return true}
