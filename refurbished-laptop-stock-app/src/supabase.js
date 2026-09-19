@@ -14,4 +14,4 @@ export async function fetchUsers(){const r=await fetch("/api/user-admin?action=l
 async function userAdmin(action,body){const r=await fetch(`/api/user-admin?action=${encodeURIComponent(action)}`,{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const d=await r.json().catch(()=>null);if(!r.ok)throw new Error(d?.error||"User management request failed");return d}
 export async function createUser(v){return userAdmin("create",v)}
 export async function updateUser(v){return userAdmin("update",v)}
-export async function resetUserPassword(user_id,password){return userAdmin("reset-password",{user_id,password})}
+export async function resetUserPassword(user_id,password){return userAdmin("reset-password",{user_id,password})}\nexport async function deleteUser(user_id){return userAdmin("delete",{user_id})}
