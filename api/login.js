@@ -1,6 +1,6 @@
 import refurbishedHandler from "./refurbished-login.js";
-const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 import { createSession, isAuthConfigured, passwordMatches, sessionCookie, usernameMatches } from "./_auth.js";
+const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 function cleanUsername(value){return String(value||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"")}
 export default async function handler(req,res){
   if(isRefurbishedHost(req)) return refurbishedHandler(req,res);
