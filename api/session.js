@@ -1,6 +1,9 @@
+const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 import { getSession, isAuthConfigured, readSessionCookie } from "./_auth.js";
 
 export default function handler(req, res) {
+
+ if(isRefurbishedHost(req)){const m=await import("../refurbished-laptop-management/api/session.js");return m.default(req,res);}
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "GET") return res.status(405).json({ error:"Method not allowed" });
   if (!isAuthConfigured()) return res.status(503).json({ authenticated:false, configured:false, user:null });
