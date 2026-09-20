@@ -1,7 +1,8 @@
-const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
+import refurbishedHandler from "../refurbished-laptop-management/api/login.js";
 import { createSession, isAuthConfigured, passwordMatches, sessionCookie, usernameMatches } from "./_auth.js";
 function cleanUsername(value){return String(value||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"")}
 export default async function handler(req,res){
+ if(isRefurbishedHost(req)){return refurbishedHandler(req,res);}
 
  if(isRefurbishedHost(req)){const m=await import("../refurbished-laptop-management/api/login.js");return m.default(req,res);}
  res.setHeader("Cache-Control","no-store");if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
