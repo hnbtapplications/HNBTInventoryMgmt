@@ -1,3 +1,4 @@
+const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 import{getSession,readSessionCookie}from"./_auth.js";
 const URL=()=>String(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||"").replace(/\/$/,"");const KEY=()=>process.env.SUPABASE_SERVICE_ROLE_KEY||"";
 function headers(extra={}){return{apikey:KEY(),Authorization:`Bearer ${KEY()}`,"Content-Type":"application/json",...extra}}
@@ -5,6 +6,8 @@ async function rest(path,opt={}){const r=await fetch(`${URL()}/rest/v1/${path}`,
 async function authAdmin(path,opt={}){const r=await fetch(`${URL()}/auth/v1/admin/${path}`,{...opt,headers:headers(opt.headers)});const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.msg||d?.message||d?.error_description||d?.error||t||`Auth error ${r.status}`);return d}
 function admin(s){return s&&s.role==="admin"&&s.permissions?.can_manage_users}
 export default async function handler(req,res){
+
+ if(isRefurbishedHost(req)){const m=await import("../refurbished-laptop-management/api/user-admin.js");return m.default(req,res);}
  res.setHeader("Cache-Control","no-store");const s=getSession(readSessionCookie(req));if(!s)return res.status(401).json({error:"Login required"});if(!admin(s))return res.status(403).json({error:"Administrator user-management permission required"});if(!URL()||!KEY())return res.status(503).json({error:"Supabase service configuration missing"});
  try{const action=String(req.query?.action||"list");
   if(req.method==="GET"&&action==="list"){const profiles=await rest("employee_profiles?select=*&order=created_at.asc");return res.json({users:(profiles||[]).map(p=>({user_id:p.user_id,full_name:p.full_name,role:p.role,branch:p.branch,active:p.active,can_manage_products:Boolean(p.can_manage_products),can_stock_movement:Boolean(p.can_stock_movement),can_view_reports:Boolean(p.can_view_reports),can_manage_masters:Boolean(p.can_manage_masters),can_view_audit_logs:Boolean(p.can_view_audit_logs),can_manage_users:Boolean(p.can_manage_users)}))})}
