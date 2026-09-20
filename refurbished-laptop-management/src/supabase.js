@@ -17,3 +17,5 @@ export async function createUser(v){return userAdmin("create",v)}
 export async function updateUser(v){return userAdmin("update",v)}
 export async function resetUserPassword(user_id,password){return userAdmin("reset-password",{user_id,password})}
 export async function deleteUser(user_id){return userAdmin("delete",{user_id})}
+export async function fetchRepairJobs(){return await api("repair-jobs")}
+export async function saveRepairJob(job){return await api("repair-save",{method:"POST",body:{job}})}
