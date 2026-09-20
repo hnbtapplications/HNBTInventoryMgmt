@@ -1,6 +1,6 @@
 import refurbishedHandler from "./refurbished-user-admin.js";
-const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 import{getSession,readSessionCookie}from"./_auth.js";
+const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 const URL=()=>String(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||"").replace(/\/$/,"");const KEY=()=>process.env.SUPABASE_SERVICE_ROLE_KEY||"";
 function headers(extra={}){return{apikey:KEY(),Authorization:`Bearer ${KEY()}`,"Content-Type":"application/json",...extra}}
 async function rest(path,opt={}){const r=await fetch(`${URL()}/rest/v1/${path}`,{...opt,headers:headers(opt.headers)});const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch{d=t}if(!r.ok)throw new Error(d?.message||d?.hint||d?.error||t||`Database error ${r.status}`);return d}
