@@ -2,6 +2,7 @@ import refurbishedHandler from "./refurbished-session.js";
 const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 import { getSession, isAuthConfigured, readSessionCookie } from "./_auth.js";
 
+// Final standalone host routing verification marker.
 export default function handler(req, res) {
   if(isRefurbishedHost(req)) return refurbishedHandler(req,res);
   res.setHeader("Cache-Control", "no-store");
