@@ -1,6 +1,9 @@
+const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 import { clearSessionCookie } from "./_auth.js";
 
 export default function handler(req, res) {
+
+ if(isRefurbishedHost(req)){const m=await import("../refurbished-laptop-management/api/logout.js");return m.default(req,res);}
   res.setHeader("Cache-Control", "no-store");
   if (req.method !== "POST") return res.status(405).json({ error:"Method not allowed" });
   res.setHeader("Set-Cookie", clearSessionCookie());
