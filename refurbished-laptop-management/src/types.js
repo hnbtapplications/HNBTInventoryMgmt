@@ -64,6 +64,35 @@
  * @property {RepairPart[]} parts
  */
 /** @typedef {{id:string,laptop_id:string,event_type:string,event_status:string|null,from_status:string|null,to_status:string|null,from_location:string|null,to_location:string|null,reference_id:string|null,details:Record<string,unknown>,created_by:string|null,created_at:string}} LifecycleEvent */
+/** @typedef {Object} StockMovement
+ * @property {string} id
+ * @property {string} laptop_id
+ * @property {"Transfer"|"Sale"|"Receipt"|"Return"} movement_type
+ * @property {RefurbLocation} from_location
+ * @property {RefurbLocation} to_location
+ * @property {string} movement_at
+ * @property {string|null} reference_no
+ * @property {number|string|null} amount
+ * @property {string|null} payment_date
+ * @property {string|null} payment_mode
+ * @property {string|null} person_handed_over
+ * @property {string|null} remarks
+ * @property {number} version_no
+ * @property {string|null} correction_reason
+ * @property {string|null} corrected_movement_id
+ * @property {string|null} created_by
+ * @property {string} created_at
+ */
+/** @typedef {Object} AuditLog
+ * @property {number|string} id
+ * @property {string|null} user_id
+ * @property {string} action
+ * @property {string} entity_type
+ * @property {string|null} entity_id
+ * @property {string|null} entity_name
+ * @property {Record<string,unknown>|null} details
+ * @property {string} created_at
+ */
 export const REFURB_STATUS=["Need to be Checked","Spares Need to be Replaced","Ready for Sale","Sold","Scrap"];
 export const REPAIR_PRIORITIES=["Low","Normal","High","Critical"];
 export const REPAIR_STATUSES=["Awaiting Parts","In Repair","Ready for QC","Completed","Cancelled"];
