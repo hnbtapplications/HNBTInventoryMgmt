@@ -84,3 +84,76 @@ alter table public.refurb_lifecycle_events enable row level security;
 drop policy if exists refurb_lifecycle_staff_select on public.refurb_lifecycle_events; create policy refurb_lifecycle_staff_select on public.refurb_lifecycle_events for select to authenticated using ((select private.refurb_is_staff()));
 drop policy if exists refurb_lifecycle_staff_insert on public.refurb_lifecycle_events; create policy refurb_lifecycle_staff_insert on public.refurb_lifecycle_events for insert to authenticated with check ((select private.refurb_is_staff()));
 grant select,insert on public.refurb_lifecycle_events to authenticated;
+
+
+create or replace function public.refurb_save_movement_atomic(p_movement jsonb, p_user_id uuid)
+returns public.refurb_stock_movements language plpgsql security invoker set search_path=public,pg_temp as $$
+declare v_laptop public.refurb_laptops%rowtype; v_row public.refurb_stock_movements%rowtype; v_type text:=nullif(trim(p_movement->>'type'),''); v_from text:=nullif(trim(p_movement->>'from'),''); v_to text:=nullif(trim(p_movement->>'to'),''); v_lid uuid:=nullif(p_movement->>'__laptopDbId','')::uuid; v_amount numeric(14,2); v_payment_date date;
+begin
+if v_lid is null then raise exception using message='Laptop is required'; end if;
+select * into v_laptop from public.refurb_laptops where id=v_lid for update;
+if not found then raise exception using message='Laptop not found'; end if;
+if v_type not in('Sale','Transfer') then raise exception using message='Invalid movement type'; end if;
+if v_from not in('Bangalore','Hosur') or v_laptop.location<>v_from then raise exception using message='Invalid source location'; end if;
+if v_type='Transfer' and (v_to not in('Bangalore','Hosur') or v_from=v_to) then raise exception using message='Invalid transfer destination'; end if;
+if v_type='Sale' and v_laptop.stock_status<>'Ready for Sale' then raise exception using message='Sale requires Ready for Sale status'; end if;
+if nullif(p_movement->>'amount','') is not null then v_amount:=(p_movement->>'amount')::numeric; if v_amount<0 then raise exception using message='Sale amount cannot be negative'; end if; end if;
+if nullif(p_movement->>'paymentDate','') is not null then v_payment_date:=(p_movement->>'paymentDate')::date; end if;
+insert into public.refurb_stock_movements(laptop_id,movement_type,from_location,to_location,movement_at,reference_no,amount,payment_date,payment_mode,person_handed_over,remarks,version_no,created_by)
+values(v_lid,v_type,v_from,coalesce(v_to,v_laptop.location),coalesce(nullif(p_movement->>'date','')::timestamptz,now()),nullif(p_movement->>'reference',''),v_amount,v_payment_date,nullif(p_movement->>'paymentMode',''),nullif(p_movement->>'personHandedOver',''),nullif(p_movement->>'remarks',''),1,p_user_id) returning * into v_row;
+update public.refurb_laptops set location=case when v_type='Transfer' then v_to else location end,stock_status=case when v_type='Sale' then 'Sold' else stock_status end,updated_by=p_user_id where id=v_lid;
+insert into public.refurb_lifecycle_events(laptop_id,event_type,event_status,from_status,to_status,from_location,to_location,reference_id,details,created_by)
+values(v_lid,'STOCK_MOVEMENT',case when v_type='Sale' then 'Sold' else v_laptop.stock_status end,v_laptop.stock_status,case when v_type='Sale' then 'Sold' else v_laptop.stock_status end,v_from,coalesce(v_to,v_laptop.location),v_row.id,jsonb_build_object('type',v_type,'amount',v_amount,'reference',v_row.reference_no),p_user_id);
+return v_row; end $$;
+
+create or replace function public.refurb_correct_movement_atomic(p_movement_id uuid,p_type text,p_from text,p_to text,p_date timestamptz,p_reference text,p_amount numeric,p_payment_date date,p_payment_mode text,p_person_handed_over text,p_remarks text,p_reason text,p_user_id uuid)
+returns public.refurb_stock_movements language plpgsql security invoker set search_path=public,pg_temp as $$
+declare v_old public.refurb_stock_movements%rowtype; v_laptop public.refurb_laptops%rowtype; v_row public.refurb_stock_movements%rowtype; v_status text; v_location text;
+begin
+if p_movement_id is null or nullif(trim(coalesce(p_reason,'')),'') is null then raise exception using message='Movement and correction reason are required'; end if;
+select * into v_old from public.refurb_stock_movements where id=p_movement_id for update; if not found then raise exception using message='Movement not found'; end if;
+select * into v_laptop from public.refurb_laptops where id=v_old.laptop_id for update; if not found then raise exception using message='Laptop not found'; end if;
+if v_old.movement_type not in('Sale','Transfer') then raise exception using message='Only Sale and Transfer movements can be corrected'; end if;
+if p_type not in('Sale','Transfer') then raise exception using message='Invalid corrected movement type'; end if;
+if p_from not in('Bangalore','Hosur') or p_to not in('Bangalore','Hosur') then raise exception using message='Invalid correction location'; end if;
+if p_type='Transfer' and p_from=p_to then raise exception using message='Transfer source and destination must differ'; end if;
+if p_type='Sale' and v_laptop.stock_status='Scrap' then raise exception using message='Scrap cannot be corrected into Sale'; end if;
+if p_amount is not null and p_amount<0 then raise exception using message='Sale amount cannot be negative'; end if;
+insert into public.refurb_movement_history(movement_id,version_no,snapshot,correction_reason,created_by) values(v_old.id,v_old.version_no,to_jsonb(v_old),p_reason,p_user_id);
+update public.refurb_stock_movements set movement_type=p_type,from_location=p_from,to_location=p_to,movement_at=coalesce(p_date,movement_at),reference_no=p_reference,amount=p_amount,payment_date=p_payment_date,payment_mode=p_payment_mode,person_handed_over=p_person_handed_over,remarks=p_remarks,version_no=v_old.version_no+1,correction_reason=p_reason,corrected_movement_id=v_old.id where id=v_old.id returning * into v_row;
+v_location:=case when p_type='Transfer' then p_to else p_from end;
+v_status:=case when p_type='Sale' then 'Sold' when v_laptop.stock_status='Sold' then 'Ready for Sale' else v_laptop.stock_status end;
+update public.refurb_laptops set location=v_location,stock_status=v_status,updated_by=p_user_id where id=v_old.laptop_id;
+insert into public.refurb_lifecycle_events(laptop_id,event_type,event_status,from_status,to_status,from_location,to_location,reference_id,details,created_by)
+values(v_old.laptop_id,'MOVEMENT_CORRECTED',v_status,v_laptop.stock_status,v_status,v_laptop.location,v_location,v_row.id,jsonb_build_object('reason',p_reason,'previous_movement',to_jsonb(v_old),'version',v_row.version_no),p_user_id);
+return v_row; end $$;
+
+create or replace function public.refurb_save_repair_atomic(p_job jsonb,p_parts jsonb,p_user_id uuid)
+returns public.refurb_repair_jobs language plpgsql security invoker set search_path=public,pg_temp as $$
+declare v_job public.refurb_repair_jobs%rowtype; v_existing public.refurb_repair_jobs%rowtype; v_id uuid:=nullif(p_job->>'id','')::uuid; v_laptop_id uuid:=nullif(p_job->>'laptop_id','')::uuid; v_status text:=coalesce(nullif(p_job->>'status',''),'In Repair'); v_priority text:=coalesce(nullif(p_job->>'priority',''),'Normal'); v_part jsonb;
+begin
+if v_laptop_id is null then raise exception using message='Laptop is required'; end if;
+perform 1 from public.refurb_laptops where id=v_laptop_id for update; if not found then raise exception using message='Laptop not found'; end if;
+if v_priority not in('Low','Normal','High','Critical') then raise exception using message='Invalid repair priority'; end if;
+if v_status not in('Awaiting Parts','In Repair','Ready for QC','Completed','Cancelled') then raise exception using message='Invalid repair status'; end if;
+if v_id is not null then
+ select * into v_existing from public.refurb_repair_jobs where id=v_id for update; if not found then raise exception using message='Repair job not found'; end if;
+ update public.refurb_repair_jobs set laptop_id=v_laptop_id,technician=nullif(trim(p_job->>'technician'),''),priority=v_priority,status=v_status,target_date=nullif(p_job->>'target_date','')::date,completed_at=case when v_status='Completed' then coalesce(v_existing.completed_at,now()) else null end,estimated_cost=nullif(p_job->>'estimated_cost','')::numeric,actual_cost=nullif(p_job->>'actual_cost','')::numeric,parts_reference=nullif(trim(p_job->>'parts_reference'),''),diagnosis=nullif(trim(p_job->>'diagnosis'),''),action_taken=nullif(trim(p_job->>'action_taken'),''),notes=nullif(trim(p_job->>'notes'),''),version_no=v_existing.version_no+1,updated_by=p_user_id where id=v_id returning * into v_job;
+else
+ insert into public.refurb_repair_jobs(laptop_id,technician,priority,status,target_date,estimated_cost,actual_cost,parts_reference,diagnosis,action_taken,notes,created_by,updated_by,completed_at)
+ values(v_laptop_id,nullif(trim(p_job->>'technician'),''),v_priority,v_status,nullif(p_job->>'target_date','')::date,nullif(p_job->>'estimated_cost','')::numeric,nullif(p_job->>'actual_cost','')::numeric,nullif(trim(p_job->>'parts_reference'),''),nullif(trim(p_job->>'diagnosis'),''),nullif(trim(p_job->>'action_taken'),''),nullif(trim(p_job->>'notes'),''),p_user_id,p_user_id,case when v_status='Completed' then now() else null end) returning * into v_job;
+end if;
+delete from public.refurb_repair_parts where repair_job_id=v_job.id;
+if jsonb_typeof(coalesce(p_parts,'[]'::jsonb))='array' then for v_part in select * from jsonb_array_elements(p_parts) loop
+insert into public.refurb_repair_parts(repair_job_id,part_name,part_number,supplier,reference_no,required_qty,consumed_qty,unit_cost,status,notes)
+values(v_job.id,trim(v_part->>'part_name'),nullif(trim(v_part->>'part_number'),''),nullif(trim(v_part->>'supplier'),''),nullif(trim(v_part->>'reference_no'),''),coalesce((v_part->>'required_qty')::numeric,1),coalesce((v_part->>'consumed_qty')::numeric,0),coalesce((v_part->>'unit_cost')::numeric,0),coalesce(nullif(v_part->>'status',''),'Required'),nullif(trim(v_part->>'notes'),''));
+end loop; end if;
+insert into public.refurb_lifecycle_events(laptop_id,event_type,event_status,reference_id,details,created_by) values(v_job.laptop_id,'REPAIR_UPDATED',v_job.status,v_job.id,jsonb_build_object('priority',v_job.priority,'parts',jsonb_array_length(coalesce(p_parts,'[]'::jsonb))),p_user_id);
+return v_job; end $$;
+
+revoke all on function public.refurb_save_movement_atomic(jsonb,uuid) from public,anon,authenticated;
+revoke all on function public.refurb_correct_movement_atomic(uuid,text,text,text,timestamptz,text,numeric,date,text,text,text,text,uuid) from public,anon,authenticated;
+revoke all on function public.refurb_save_repair_atomic(jsonb,jsonb,uuid) from public,anon,authenticated;
+grant execute on function public.refurb_save_movement_atomic(jsonb,uuid) to service_role;
+grant execute on function public.refurb_correct_movement_atomic(uuid,text,text,text,timestamptz,text,numeric,date,text,text,text,text,uuid) to service_role;
+grant execute on function public.refurb_save_repair_atomic(jsonb,jsonb,uuid) to service_role;
