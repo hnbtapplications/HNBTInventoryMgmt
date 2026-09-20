@@ -115,7 +115,9 @@ select * into v_old from public.refurb_stock_movements where id=p_movement_id fo
 select * into v_laptop from public.refurb_laptops where id=v_old.laptop_id for update; if not found then raise exception using message='Laptop not found'; end if;
 if v_old.movement_type not in('Sale','Transfer') then raise exception using message='Only Sale and Transfer movements can be corrected'; end if;
 if p_type not in('Sale','Transfer') then raise exception using message='Invalid corrected movement type'; end if;
-if p_from not in('Bangalore','Hosur') or p_to not in('Bangalore','Hosur') then raise exception using message='Invalid correction location'; end if;
+if p_from not in('Bangalore','Hosur') then raise exception using message='Invalid correction source location'; end if;
+if p_type='Transfer' and p_to not in('Bangalore','Hosur') then raise exception using message='Invalid transfer destination'; end if;
+if p_type='Sale' and p_to <> 'Customer' then raise exception using message='Sale destination must be Customer'; end if;
 if p_type='Transfer' and p_from=p_to then raise exception using message='Transfer source and destination must differ'; end if;
 if p_type='Sale' and v_laptop.stock_status='Scrap' then raise exception using message='Scrap cannot be corrected into Sale'; end if;
 if p_amount is not null and p_amount<0 then raise exception using message='Sale amount cannot be negative'; end if;
