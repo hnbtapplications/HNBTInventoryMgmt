@@ -76,3 +76,11 @@ drop policy if exists refurb_repair_parts_staff_delete on public.refurb_repair_p
 create or replace function public.refurb_repair_touch_updated_at() returns trigger language plpgsql set search_path=public,pg_temp as $$ begin new.updated_at=now();return new;end; $$;
 drop trigger if exists refurb_repair_jobs_touch_updated_at on public.refurb_repair_jobs; create trigger refurb_repair_jobs_touch_updated_at before update on public.refurb_repair_jobs for each row execute function public.refurb_repair_touch_updated_at();
 drop trigger if exists refurb_repair_parts_touch_updated_at on public.refurb_repair_parts; create trigger refurb_repair_parts_touch_updated_at before update on public.refurb_repair_parts for each row execute function public.refurb_repair_touch_updated_at();
+
+create table if not exists public.refurb_lifecycle_events(id uuid primary key default gen_random_uuid(),laptop_id uuid not null references public.refurb_laptops(id) on delete cascade,event_type text not null,event_status text,from_status text,to_status text,from_location text,to_location text,reference_id uuid,details jsonb not null default '{}'::jsonb,created_by uuid references auth.users(id),created_at timestamptz not null default now());
+create index if not exists refurb_lifecycle_laptop_idx on public.refurb_lifecycle_events(laptop_id,created_at desc);
+create index if not exists refurb_lifecycle_type_idx on public.refurb_lifecycle_events(event_type,created_at desc);
+alter table public.refurb_lifecycle_events enable row level security;
+drop policy if exists refurb_lifecycle_staff_select on public.refurb_lifecycle_events; create policy refurb_lifecycle_staff_select on public.refurb_lifecycle_events for select to authenticated using ((select private.refurb_is_staff()));
+drop policy if exists refurb_lifecycle_staff_insert on public.refurb_lifecycle_events; create policy refurb_lifecycle_staff_insert on public.refurb_lifecycle_events for insert to authenticated with check ((select private.refurb_is_staff()));
+grant select,insert on public.refurb_lifecycle_events to authenticated;
