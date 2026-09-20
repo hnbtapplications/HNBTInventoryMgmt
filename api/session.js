@@ -1,7 +1,8 @@
-const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
+import refurbishedHandler from "../refurbished-laptop-management/api/session.js";
 import { getSession, isAuthConfigured, readSessionCookie } from "./_auth.js";
 
 export default function handler(req, res) {
+ if(isRefurbishedHost(req)){return refurbishedHandler(req,res);}
 
  if(isRefurbishedHost(req)){const m=await import("../refurbished-laptop-management/api/session.js");return m.default(req,res);}
   res.setHeader("Cache-Control", "no-store");
