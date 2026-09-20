@@ -19,3 +19,5 @@ export async function resetUserPassword(user_id,password){return userAdmin("rese
 export async function deleteUser(user_id){return userAdmin("delete",{user_id})}
 export async function fetchRepairJobs(){return await api("repair-jobs")}
 export async function saveRepairJob(job){return await api("repair-save",{method:"POST",body:{job}})}
+
+export async function fetchLifecycle(laptopId){return await api("lifecycle",{query:{laptop_id:laptopId}})}
