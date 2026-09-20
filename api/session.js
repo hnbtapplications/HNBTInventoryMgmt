@@ -1,6 +1,7 @@
 import refurbishedHandler from "../refurbished-laptop-management/api/session.js";
 import { getSession, isAuthConfigured, readSessionCookie } from "./_auth.js";
 
+// Refurbished host routing is intentionally kept in the shared root API for this Vercel project.
 export default function handler(req, res) {
  if(isRefurbishedHost(req)){return refurbishedHandler(req,res);}
 
