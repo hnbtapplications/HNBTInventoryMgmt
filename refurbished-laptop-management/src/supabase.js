@@ -4,7 +4,7 @@ export async function getCurrentUser(){const r=await fetch("/api/session",{crede
 export async function signOut(){await fetch("/api/logout",{method:"POST",credentials:"same-origin"}).catch(()=>{})}
 function toMovement(r,laptops){const x=laptops.find(z=>z.__dbId===r.laptop_id);return{id:r.id,laptopId:x?.["Laptop ID"]||r.laptop_id,type:r.movement_type,from:r.from_location,to:r.to_location,date:r.movement_at,reference:r.reference_no||"",amount:r.amount??"",paymentDate:r.payment_date||"",paymentMode:r.payment_mode||"",personHandedOver:r.person_handed_over||"",remarks:r.remarks||"",version:r.version_no||1,correctionReason:r.correction_reason||"",__dbId:r.id}}
 export async function fetchLaptops(){return await api("laptops")}
-export async function upsertLaptop(x){return await api("laptop-save",{method:"POST",body:{item:x}})}
+export async function upsertLaptop(x){return await api("laptop-save",{method:"POST",body:{item:{...x,__updatedAt:x.__updatedAt||x.updated_at||x.__updatedAt}}})}
 export async function deleteLaptop(x){return await api("laptop-delete",{method:"POST",body:{id:x.__dbId}})}
 export async function fetchMovements(laptops){return(await api("movements")||[]).map(r=>toMovement(r,laptops))}
 export async function fetchAuditLog(){return await api("audit-log")}
