@@ -1,6 +1,6 @@
 import refurbishedHandler from "./refurbished-api.js";
-const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 import{getSession,readSessionCookie}from"./_auth.js";
+const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 const URL=()=>String(process.env.SUPABASE_URL||process.env.VITE_SUPABASE_URL||"").replace(/\/$/,"");
 const KEY=()=>process.env.SUPABASE_SERVICE_ROLE_KEY||"";
 function allowed(s){return s&&(s.role==="admin"||s.permissions?.can_view_reports||s.permissions?.can_stock_movement||s.permissions?.can_manage_products)}
