@@ -3,13 +3,34 @@ name: Refurbished app build
 on:
   push:
     branches:
+      - main
       - refactor/separate-refurbished-management
   pull_request:
     paths:
+      - "api/**"
       - "refurbished-laptop-management/**"
+      - "refurbished-laptop.html"
+      - "vercel.json"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.js"
 
 jobs:
-  build:
+  root-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Validate serverless API module syntax
+        run: for f in api/*.js; do node --check "$f"; done
+      - run: npm run build
+
+  refurbished-source-build:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -19,7 +40,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: refurbished-laptop-management/package.json
       - run: npm install --no-audit --no-fund
       - run: npm run build
