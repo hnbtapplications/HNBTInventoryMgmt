@@ -1,8 +1,4 @@
-import { getSession as getRefurbishedSession, readSessionCookie as readRefurbishedSessionCookie, isAuthConfigured as isRefurbishedAuthConfigured } from "./refurbished-auth.js";
 import { getSession, isAuthConfigured, readSessionCookie } from "./_auth.js";
-
-const isRefurbishedHost = (req) =>
-  String(req?.headers?.host || "").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 
 function sessionResponse(session, configured) {
   if (!session) return { authenticated: false, configured, user: null };
@@ -23,16 +19,7 @@ function sessionResponse(session, configured) {
 
 export default function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  if (isRefurbishedHost(req)) {
-    const configured = isRefurbishedAuthConfigured();
-    const session = getRefurbishedSession(readRefurbishedSessionCookie(req));
-    return res.status(200).json(sessionResponse(session, configured));
-  }
+  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   const configured = isAuthConfigured();
   const session = getSession(readSessionCookie(req));
