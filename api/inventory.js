@@ -22,38 +22,45 @@ export default async function handler(req,res){res.setHeader("Cache-Control","no
    const newProduct=(await rest(`products?id=eq.${encodeURIComponent(m.productId)}&select=*`))[0]||null;
    if(!newProduct)return res.status(404).json({error:"Product not found"});
 
-   const oldProductId=String(old?.productId||"");
    let oldProduct=null;
    if(old){
-     oldProduct=(await rest(`products?id=eq.${encodeURIComponent(oldProductId)}&select=*`))[0]||null;
-     if(!oldProduct&&old.product){
-       oldProduct=(await rest(`products?name=eq.${encodeURIComponent(old.product)}&select=*`))[0]||null;
-     }
+     oldProduct=(await rest(`products?id=eq.${encodeURIComponent(String(old.productId||""))}&select=*`))[0]||null;
+     if(!oldProduct&&old.product)oldProduct=(await rest(`products?name=eq.${encodeURIComponent(old.product)}&select=*`))[0]||null;
      if(!oldProduct)return res.status(409).json({error:"The product linked to the existing movement no longer exists"});
    }
 
    const changed={};
-   const addDelta=(product,branch,type,qty)=>{
+   const applyDelta=(product,branch,type,qty)=>{
      const key=String(branch).toLowerCase();
      const current=Number(product[key])||0;
      const delta=type==="IN"?Number(qty)||0:-(Number(qty)||0);
      const next=current+delta;
      if(next<0)throw new Error(`Stock Out quantity exceeds available stock for ${product.name} at ${branch}. Available: ${current}`);
      product[key]=next;
-     changed[product.id]=product;
+   };
+   const reverseMovement=(product,movement)=>{
+     const key=String(movement.branch).toLowerCase();
+     const current=Number(product[key])||0;
+     const next=movement.type==="IN"?current-(Number(movement.qty)||0):current+(Number(movement.qty)||0);
+     product[key]=Math.max(0,next);
    };
 
    try{
-     if(old){
-       addDelta(oldProduct,old.branch,old.type,-0);
-       const oldKey=String(old.branch).toLowerCase();
-       const oldCurrent=Number(oldProduct[oldKey])||0;
-       oldProduct[oldKey]=old.type==="IN"?oldCurrent-(Number(old.qty)||0):oldCurrent+(Number(old.qty)||0);
-       if(oldProduct[oldKey]<0)oldProduct[oldKey]=0;
-       changed[oldProduct.id]=oldProduct;
+     if(old&&oldProduct.id===newProduct.id){
+       const product={...newProduct};
+       reverseMovement(product,old);
+       applyDelta(product,m.branch,m.type,m.qty);
+       changed[product.id]=product;
+     }else{
+       if(old){
+         const reversed={...oldProduct};
+         reverseMovement(reversed,old);
+         changed[reversed.id]=reversed;
+       }
+       const target={...newProduct};
+       applyDelta(target,m.branch,m.type,m.qty);
+       changed[target.id]=target;
      }
-
-     addDelta(newProduct,m.branch,m.type,m.qty);
 
      for(const product of Object.values(changed)){
        const p=cleanProduct(product);
@@ -106,8 +113,7 @@ export default async function handler(req,res){res.setHeader("Cache-Control","no
    const key=String(old.branch).toLowerCase();
    const current=Number(product[key])||0;
    const qty=Number(old.qty)||0;
-   const next=old.type==="IN"?current-qty:current+qty;
-   product[key]=Math.max(0,next);
+   product[key]=old.type==="IN"?Math.max(0,current-qty):current+qty;
 
    const p=cleanProduct(product);
    await rest(`products?id=eq.${encodeURIComponent(p.id)}`,{
