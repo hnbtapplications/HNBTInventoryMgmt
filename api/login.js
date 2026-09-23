@@ -1,9 +1,6 @@
-import refurbishedHandler from "./refurbished-login.js";
 import { createSession, isAuthConfigured, passwordMatches, sessionCookie, usernameMatches } from "./_auth.js";
-const isRefurbishedHost=(req)=>String(req?.headers?.host||"").toLowerCase().startsWith("hnbt-refurbished-laptop-standalone");
 function cleanUsername(value){return String(value||"").trim().toLowerCase().replace(/[^a-z0-9._-]/g,"")}
 export default async function handler(req,res){
-  if(isRefurbishedHost(req)) return refurbishedHandler(req,res);
  res.setHeader("Cache-Control","no-store");if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});
  const{username="",password=""}=req.body||{};
  if(isAuthConfigured()&&usernameMatches(username)&&passwordMatches(password)){const user={username:String(username).trim(),full_name:"Administrator",role:"admin",branch:"Both",mode:"admin",permissions:{can_manage_products:true,can_stock_movement:true,can_view_reports:true,can_manage_masters:true,can_view_audit_logs:true,can_manage_users:true}};res.setHeader("Set-Cookie",sessionCookie(createSession(user)));return res.status(200).json({authenticated:true,mode:"admin",user});}
