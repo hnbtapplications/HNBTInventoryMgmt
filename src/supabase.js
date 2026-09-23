@@ -6,8 +6,8 @@ export async function fetchProductsFromDB(){try{return await api("products")}cat
 export async function upsertProductToDB(product){try{await api("product-upsert",{method:"POST",body:{product}});return true}catch(e){console.error(e);return false}}
 export async function deleteProductFromDB(id){try{await api("product-delete",{method:"POST",body:{id}});return true}catch(e){console.error(e);return false}}
 export async function fetchMovementsFromDB(){try{return await api("movements")}catch(e){console.error(e);return null}}
-export async function upsertMovementToDB(movement){try{await api("movement-upsert",{method:"POST",body:{movement}});return true}catch(e){console.error(e);return false}}
-export async function deleteMovementFromDB(id){try{await api("movement-delete",{method:"POST",body:{id}});return true}catch(e){console.error(e);return false}}
+export async function upsertMovementToDB(movement){try{return await api("movement-upsert",{method:"POST",body:{movement}})}catch(e){console.error(e);throw e}}
+export async function deleteMovementFromDB(id){try{return await api("movement-delete",{method:"POST",body:{id}})}catch(e){console.error(e);throw e}}
 export async function fetchAuditLogsFromDB(){try{return await api("audit")}catch(e){console.error(e);return null}}
 export async function writeAuditLogToDB(){return false}
 export async function fetchMastersFromDB(){try{return await api("masters")}catch(e){console.error(e);return null}}
