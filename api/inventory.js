@@ -64,13 +64,10 @@ export default async function handler(req,res){res.setHeader("Cache-Control","no
 
      for(const product of Object.values(changed)){
        const p=cleanProduct(product);
-       await rest(`products?id=eq.${encodeURIComponent(p.id)}`,{
-         method:"PATCH",
-         headers:{Prefer:"return=representation"},
-         body:JSON.stringify({
-           name:p.name,brand:p.brand,category:p.category,unit:p.unit,
-           purchase:p.purchase,sale:p.sale,min:p.min,bangalore:p.bangalore,hosur:p.hosur
-         })
+       await rest("products?on_conflict=id",{
+         method:"POST",
+         headers:{Prefer:"resolution=merge-duplicates,return=representation"},
+         body:JSON.stringify(p)
        });
      }
 
@@ -116,14 +113,11 @@ export default async function handler(req,res){res.setHeader("Cache-Control","no
    product[key]=old.type==="IN"?Math.max(0,current-qty):current+qty;
 
    const p=cleanProduct(product);
-   await rest(`products?id=eq.${encodeURIComponent(p.id)}`,{
-     method:"PATCH",
-     headers:{Prefer:"return=representation"},
-     body:JSON.stringify({
-       name:p.name,brand:p.brand,category:p.category,unit:p.unit,
-       purchase:p.purchase,sale:p.sale,min:p.min,bangalore:p.bangalore,hosur:p.hosur
-     })
-   });
+   await rest("products?on_conflict=id",{
+         method:"POST",
+         headers:{Prefer:"resolution=merge-duplicates,return=representation"},
+         body:JSON.stringify(p)
+       });
    await rest(`movements?id=eq.${encodeURIComponent(id)}`,{method:"DELETE",headers:{Prefer:"return=minimal"}});
    await audit(s,{action:"MOVEMENT_DELETED",entity_type:"movement",entity_id:id,entity_name:old.product||id,branch:old.branch||"",old_value:old,details:"Stock movement deleted and inventory quantity reversed"});
    const saved=(await rest(`products?id=eq.${encodeURIComponent(p.id)}&select=*`))[0]||p;
