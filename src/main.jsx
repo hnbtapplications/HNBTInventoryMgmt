@@ -452,23 +452,34 @@ function App(){
     setShowMovement(true);
   }
 
-  function deleteMovement(m){
+  async function deleteMovement(m){
     if(!confirm(`Delete this stock movement (${m.type} ${m.qty} ${m.product})? Stock will be adjusted back.`)) return;
-    const oldProd = products.find(p => p.id === m.productId || p.name === m.product);
-    const key = (m.branch || "Bangalore").toLowerCase();
-    const qty = Number(m.qty) || 0;
 
-    if(oldProd){
-      const updatedProd = {
-        ...oldProd,
-        [key]: m.type === "IN" ? Math.max(0, Number(oldProd[key] || 0) - qty) : Number(oldProd[key] || 0) + qty
-      };
-      setProducts(ps => ps.map(p => p.id === oldProd.id ? updatedProd : p));
-      if(isSupabaseConfigured()) upsertProductToDB(updatedProd).catch(console.error);
+    if(isSupabaseConfigured()){
+      try{
+        const result=await deleteMovementFromDB(m.id);
+        if(result?.product){
+          setProducts(ps=>ps.map(p=>p.id===result.product.id?result.product:p));
+        }
+        setMovements(ms=>ms.filter(item=>item.id!==m.id));
+      }catch(err){
+        alert(err.message||"Unable to delete stock movement.");
+      }
+      return;
     }
 
-    setMovements(ms => ms.filter(item => item.id !== m.id));
-    if(isSupabaseConfigured()) deleteMovementFromDB(m.id).catch(console.error);
+    const oldProd=products.find(p=>p.id===m.productId||p.name===m.product);
+    const key=(m.branch||"Bangalore").toLowerCase();
+    const qty=Number(m.qty)||0;
+
+    if(oldProd){
+      const updatedProd={
+        ...oldProd,
+        [key]:m.type==="IN"?Math.max(0,Number(oldProd[key]||0)-qty):Number(oldProd[key]||0)+qty
+      };
+      setProducts(ps=>ps.map(p=>p.id===oldProd.id?updatedProd:p));
+    }
+    setMovements(ms=>ms.filter(item=>item.id!==m.id));
   }
 
   // Available stock calculations for Stock Movement modal
@@ -506,105 +517,109 @@ function App(){
 
   const isOutwardExceeding = movement.type === "OUT" && Number(movement.qty) > activeBranchStock.availableForOut;
 
-  function saveMovement(e){
+  async function saveMovement(e){
     e.preventDefault();
-    const qty = Math.max(1, Number(movement.qty) || 1);
-    const newProduct = products.find(p => p.id === movement.productId);
+    const qty=Math.max(1,Number(movement.qty)||1);
+    const newProduct=products.find(p=>p.id===movement.productId);
     if(!newProduct){
       alert("Please select a product.");
       return;
     }
-    const newKey = (movement.branch || "Bangalore").toLowerCase();
+
+    const movementItem=editingMovement
+      ? {
+          ...editingMovement,
+          type:movement.type,
+          productId:newProduct.id,
+          product:newProduct.name,
+          branch:movement.branch,
+          qty,
+          note:movement.note
+        }
+      : {
+          id:Date.now(),
+          timestamp:Date.now(),
+          date:new Date().toLocaleString("en-IN"),
+          type:movement.type,
+          productId:newProduct.id,
+          product:newProduct.name,
+          branch:movement.branch,
+          qty,
+          note:movement.note
+        };
+
+    if(isSupabaseConfigured()){
+      try{
+        const result=await upsertMovementToDB(movementItem);
+        if(result?.products?.length){
+          setProducts(ps=>{
+            const byId=new Map(ps.map(p=>[p.id,p]));
+            result.products.forEach(p=>byId.set(p.id,p));
+            return Array.from(byId.values());
+          });
+        }
+        if(result?.movement){
+          setMovements(ms=>editingMovement
+            ? ms.map(m=>m.id===editingMovement.id?result.movement:m)
+            : [result.movement,...ms]
+          );
+        }
+        closeMovementModal();
+      }catch(err){
+        alert(err.message||"Unable to save stock movement.");
+      }
+      return;
+    }
+
+    const newKey=(movement.branch||"Bangalore").toLowerCase();
 
     if(editingMovement){
-      const oldProd = products.find(p => p.id === editingMovement.productId || p.name === editingMovement.product);
-      const oldKey = (editingMovement.branch || "Bangalore").toLowerCase();
-      const oldQty = Number(editingMovement.qty) || 0;
-      const oldType = editingMovement.type;
+      const oldProd=products.find(p=>p.id===editingMovement.productId||p.name===editingMovement.product);
+      const oldKey=(editingMovement.branch||"Bangalore").toLowerCase();
+      const oldQty=Number(editingMovement.qty)||0;
+      const oldType=editingMovement.type;
 
-      let intermediateProducts = products.map(p => {
-        if(oldProd && p.id === oldProd.id){
-          const current = Number(p[oldKey] || 0);
-          return {
-            ...p,
-            [oldKey]: oldType === "IN" ? current - oldQty : current + oldQty
-          };
+      let intermediateProducts=products.map(p=>{
+        if(oldProd&&p.id===oldProd.id){
+          const current=Number(p[oldKey]||0);
+          return {...p,[oldKey]:oldType==="IN"?current-oldQty:current+oldQty};
         }
         return p;
       });
 
-      const targetProd = intermediateProducts.find(p => p.id === newProduct.id);
-      const available = Number(targetProd ? targetProd[newKey] || 0 : 0);
-      if(movement.type === "OUT" && qty > available){
-        alert(`⚠️ Stock Out Alert!\n\nOutward quantity (${qty} ${newProduct.unit || 'Nos'}) exceeds the available stock in ${movement.branch} (${available} ${newProduct.unit || 'Nos'}).\n\nPlease enter a quantity less than or equal to ${available}.`);
+      const targetProd=intermediateProducts.find(p=>p.id===newProduct.id);
+      const available=Number(targetProd?targetProd[newKey]||0:0);
+      if(movement.type==="OUT"&&qty>available){
+        alert(`⚠️ Stock Out Alert!\\n\\nOutward quantity (${qty} ${newProduct.unit||"Nos"}) exceeds the available stock in ${movement.branch} (${available} ${newProduct.unit||"Nos"}).\\n\\nPlease enter a quantity less than or equal to ${available}.`);
         return;
       }
 
-      const finalProducts = intermediateProducts.map(p => {
-        if(p.id === newProduct.id){
-          const current = Number(p[newKey] || 0);
-          return {
-            ...p,
-            [newKey]: movement.type === "IN" ? current + qty : current - qty
-          };
+      const finalProducts=intermediateProducts.map(p=>{
+        if(p.id===newProduct.id){
+          const current=Number(p[newKey]||0);
+          return {...p,[newKey]:movement.type==="IN"?current+qty:current-qty};
         }
         return p;
       });
 
-      const updatedMovement = {
-        ...editingMovement,
-        type: movement.type,
-        productId: newProduct.id,
-        product: newProduct.name,
-        branch: movement.branch,
-        qty,
-        note: movement.note
-      };
-
       setProducts(finalProducts);
-      setMovements(ms => ms.map(m => m.id === editingMovement.id ? updatedMovement : m));
-
-      if(isSupabaseConfigured()){
-        upsertMovementToDB(updatedMovement).catch(console.error);
-        const updatedNewProd = finalProducts.find(p => p.id === newProduct.id);
-        const updatedOldProd = oldProd && oldProd.id !== newProduct.id ? finalProducts.find(p => p.id === oldProd.id) : null;
-        if(updatedNewProd) upsertProductToDB(updatedNewProd).catch(console.error);
-        if(updatedOldProd) upsertProductToDB(updatedOldProd).catch(console.error);
-      }
-
+      setMovements(ms=>ms.map(m=>m.id===editingMovement.id?movementItem:m));
       closeMovementModal();
       return;
     }
 
-    const current = Number(newProduct[newKey] || 0);
-    if(movement.type === "OUT" && qty > current){
-      alert(`⚠️ Stock Out Alert!\n\nOutward quantity (${qty} ${newProduct.unit || 'Nos'}) exceeds the available stock in ${movement.branch} (${current} ${newProduct.unit || 'Nos'}).\n\nPlease enter a quantity less than or equal to ${current}.`);
+    const current=Number(newProduct[newKey]||0);
+    if(movement.type==="OUT"&&qty>current){
+      alert(`⚠️ Stock Out Alert!\\n\\nOutward quantity (${qty} ${newProduct.unit||"Nos"}) exceeds the available stock in ${movement.branch} (${current} ${newProduct.unit||"Nos"}).\\n\\nPlease enter a quantity less than or equal to ${current}.`);
       return;
     }
 
-    const updatedProduct = {
+    const updatedProduct={
       ...newProduct,
-      [newKey]: movement.type === "IN" ? current + qty : current - qty
+      [newKey]:movement.type==="IN"?current+qty:current-qty
     };
-    const newMovementItem = {
-      id: Date.now(),
-      timestamp: Date.now(),
-      date: new Date().toLocaleString("en-IN"),
-      type: movement.type,
-      productId: newProduct.id,
-      product: newProduct.name,
-      branch: movement.branch,
-      qty,
-      note: movement.note
-    };
-
-    setProducts(ps => ps.map(p => p.id === newProduct.id ? updatedProduct : p));
-    setMovements(ms => [newMovementItem, ...ms]);
-
-    if(isSupabaseConfigured()){
-      upsertMovementToDB(newMovementItem).catch(console.error);
-      upsertProductToDB(updatedProduct).catch(console.error);
-    }
+    setProducts(ps=>ps.map(p=>p.id===newProduct.id?updatedProduct:p));
+    setMovements(ms=>[movementItem,...ms]);
     closeMovementModal();
   }
 
