@@ -208,10 +208,10 @@ function App(){
           fetchMastersFromDB()
         ]);
 
-        if (cloudProds && cloudProds.length > 0) {
+        if (Array.isArray(cloudProds)) {
           setProducts(cloudProds);
         }
-        if (cloudMovs && cloudMovs.length > 0) {
+        if (Array.isArray(cloudMovs)) {
           setMovements(cloudMovs);
         }
         if (cloudMasters) {
