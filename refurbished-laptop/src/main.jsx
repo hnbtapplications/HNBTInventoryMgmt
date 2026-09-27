@@ -19,7 +19,7 @@ function LoginScreen({onLogin}){
    e.preventDefault();
    setBusy(true);setError("");
    const passwordHash=await sha256(password);
-   const user = await authenticateUser(username, passwordHash);
+   const user = await authenticateUser(username.trim(), passwordHash);
    if(user) {
      onLogin(user);
      return;
