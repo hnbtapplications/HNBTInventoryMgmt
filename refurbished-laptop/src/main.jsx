@@ -1,7 +1,7 @@
 import React, {useMemo, useState, useEffect} from "react";
-import { fetchLaptopsFromDB, upsertLaptopToDB, deleteLaptopFromDB, fetchMovementsFromDB, upsertMovementToDB } from "./supabase";
+import { fetchLaptopsFromDB, upsertLaptopToDB, deleteLaptopFromDB, fetchMovementsFromDB, upsertMovementToDB, authenticateUser, fetchUsersFromDB, upsertUserToDB, deleteUserFromDB } from "./supabase";
 import {createRoot} from "react-dom/client";
-import {LayoutDashboard, Laptop, ClipboardCheck, ArrowLeftRight, Search, Plus, Pencil, Trash2, Save, X, History, FileText, LogOut, LockKeyhole} from "lucide-react";
+import {LayoutDashboard, Laptop, ClipboardCheck, ArrowLeftRight, Search, Plus, Pencil, Trash2, Save, X, History, FileText, LogOut, LockKeyhole, Users} from "lucide-react";
 import "./styles.css";
 
 const companyLogo="/company-logo.png";
@@ -9,20 +9,36 @@ const adminUsername="Hertznbytes";
 const adminPasswordHash="240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
 async function sha256(value){const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,"0")).join("")}
 
+
 function LoginScreen({onLogin}){
  const [username,setUsername]=useState("");
  const [password,setPassword]=useState("");
  const [error,setError]=useState("");
  const [busy,setBusy]=useState(false);
- const submit=async e=>{e.preventDefault();setBusy(true);setError("");const passwordHash=await sha256(password);if(username.trim().toLowerCase()===adminUsername.toLowerCase()&&passwordHash===adminPasswordHash){onLogin();return}setError("Incorrect username or password.");setBusy(false)};
- return <div className="loginPage"><div className="loginVisual"><div className="loginVisualContent"><span className="eyebrow">HERTZ & BYTES TECHNOLOGIES</span><h1>Refurbished Laptop Inventory</h1><p>Manage laptop configuration, inspection, stock transfers and sales across Bangalore and Hosur.</p><div className="loginHighlights"><span>Secure access</span><span>Stock visibility</span><span>Condition tracking</span></div></div></div><div className="loginPanel"><form className="loginCard" onSubmit={submit}><img src={companyLogo} alt="SandroGen Technologies"/><div className="loginIcon"><LockKeyhole/></div><div><h2>Welcome back</h2><p>Sign in to open the inventory application.</p></div><label>Username<input autoFocus autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} placeholder="Enter username" required/></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter password" required/></label>{error&&<div className="loginError">{error}</div>}<button className="loginButton" disabled={busy}>{busy?"Signing in...":"Sign In"}</button><small>Authorized personnel only</small></form></div></div>
+ const submit=async e=>{
+   e.preventDefault();
+   setBusy(true);setError("");
+   const passwordHash=await sha256(password);
+   const user = await authenticateUser(username, passwordHash);
+   if(user) {
+     onLogin(user);
+     return;
+   }
+   setError("Incorrect username or password.");
+   setBusy(false);
+ };
+ return <div className="loginPage"><div className="loginVisual"><div className="loginVisualContent"><span className="eyebrow">SANDROGEN TECHNOLOGIES</span><h1>Refurbished Laptop Inventory</h1><p>Manage laptop configuration, inspection, stock transfers and sales across Bangalore and Hosur.</p><div className="loginHighlights"><span>Secure access</span><span>Stock visibility</span><span>Condition tracking</span></div></div></div><div className="loginPanel"><form className="loginCard" onSubmit={submit}><img src={companyLogo} alt="SandroGen Technologies"/><div className="loginIcon"><LockKeyhole/></div><div><h2>Welcome back</h2><p>Sign in to open the inventory application.</p></div><label>Username<input autoFocus autoComplete="username" value={username} onChange={e=>setUsername(e.target.value)} placeholder="Enter username" required/></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter password" required/></label>{error&&<div className="loginError">{error}</div>}<button className="loginButton" disabled={busy}>{busy?"Signing in...":"Sign In"}</button><small>Authorized personnel only</small></form></div></div>
 }
 
 function Root(){
- const [authenticated,setAuthenticated]=useState(()=>sessionStorage.getItem("hnb_authenticated")==="yes");
- const login=()=>{sessionStorage.setItem("hnb_authenticated","yes");setAuthenticated(true)};
- const logout=()=>{sessionStorage.removeItem("hnb_authenticated");setAuthenticated(false)};
- return authenticated?<App onLogout={logout}/>:<LoginScreen onLogin={login}/>;
+ const [currentUser, setCurrentUser]=useState(()=>{
+   const stored = sessionStorage.getItem("hnb_user");
+   if(stored) return JSON.parse(stored);
+   return null;
+ });
+ const login=(user)=>{sessionStorage.setItem("hnb_user",JSON.stringify(user));setCurrentUser(user)};
+ const logout=()=>{sessionStorage.removeItem("hnb_user");setCurrentUser(null)};
+ return currentUser?<App currentUser={currentUser} onLogout={logout}/>:<LoginScreen onLogin={login}/>;
 }
 
 const seed = [{"Laptop ID": "LNK-001", "Brand": "Lenovo", "Model": "ThinkPad X1 Carbon Gen 9", "Serial Number": "R90X8F32", "Processor Model": "Intel i7-1185G7", "Processor Gen": "11th Gen", "RAM Slot 1 Size (GB)": 16, "RAM Slot 1 Type": "DDR4", "RAM Slot 2 Size (GB)": 16, "RAM Slot 2 Type": "DDR4", "Storage 1 Capacity": "512GB", "Storage 1 Type": "NVMe SSD", "Storage 2 Capacity": "", "Storage 2 Type": "", "Screen Size": "14\"", "Battery Health (%)": 88, "Battery Cycle Count": 142, "Battery Backup Time": "2.30 Hrs ", "CPU Stress Test": "Passed", "RAM Diagnostics": "Passed", "Drive Health Status": "Passed (Healthy)", "Graphics Stability Test": "Passed", "Keyboard Mechanical Check": "Passed", "Keyboard Backlight (Y/N)": "Yes", "Trackpad Responsiveness": "Passed", "Webcam Functionality": "Grade A (No Scratches)", "Wi-Fi Connectivity": "Passed", "Bluetooth Pair Test": "Passed", "Internal Speakers Status": "Passed", "Microphone Audio Quality": "Passed", "Display Panel Grading (A/B/C)": "Grade A", "Overall Cosmetic Status": "ABH Ok, C NTR, D NTR"}, {"Laptop ID": "LNK-002", "Brand": "Dell", "Model": "Latitude 7420", "Serial Number": "7XYZ891", "Processor Model": "Intel i5-1185G7", "Processor Gen": "11th Gen", "RAM Slot 1 Size (GB)": 16, "RAM Slot 1 Type": "DDR4", "RAM Slot 2 Size (GB)": 16, "RAM Slot 2 Type": "DDR4", "Storage 1 Capacity": "256GB", "Storage 1 Type": "NVMe SSD", "Storage 2 Capacity": "", "Storage 2 Type": "", "Screen Size": "15\"", "Battery Health (%)": 92, "Battery Cycle Count": 85, "Battery Backup Time": "2 Hrs", "CPU Stress Test": "Passed", "RAM Diagnostics": "Passed", "Drive Health Status": "Passed (Healthy)", "Graphics Stability Test": "Passed", "Keyboard Mechanical Check": "Passed", "Keyboard Backlight (Y/N)": "No", "Trackpad Responsiveness": "Passed", "Webcam Functionality": "Grade A (Pristine)", "Wi-Fi Connectivity": "Passed", "Bluetooth Pair Test": "Passed", "Internal Speakers Status": "Passed", "Microphone Audio Quality": "Passed", "Display Panel Grading (A/B/C)": "Grade A", "Overall Cosmetic Status": "Pristine Condition"}, {"Laptop ID": "LNK-003", "Brand": "HP", "Model": "EliteBook 840 G8", "Serial Number": "CND1234XYZ", "Processor Model": "Intel i7-1185G7", "Processor Gen": "11th Gen", "RAM Slot 1 Size (GB)": 32, "RAM Slot 1 Type": "DDR4", "RAM Slot 2 Size (GB)": 32, "RAM Slot 2 Type": "DDR4", "Storage 1 Capacity": "1TB", "Storage 1 Type": "NVMe SSD", "Storage 2 Capacity": "", "Storage 2 Type": "", "Screen Size": "14\"", "Battery Health (%)": 84, "Battery Cycle Count": 210, "Battery Backup Time": "2.45 Hrs", "CPU Stress Test": "Passed", "RAM Diagnostics": "Passed", "Drive Health Status": "Passed (Healthy)", "Graphics Stability Test": "Passed", "Keyboard Mechanical Check": "Passed", "Keyboard Backlight (Y/N)": "Yes", "Trackpad Responsiveness": "Passed", "Webcam Functionality": "Grade B (Minor Spot)", "Wi-Fi Connectivity": "Passed", "Bluetooth Pair Test": "Passed", "Internal Speakers Status": "Passed", "Microphone Audio Quality": "Passed", "Display Panel Grading (A/B/C)": "Grade B", "Overall Cosmetic Status": "Scratched Lid"}];
@@ -50,7 +66,7 @@ function normalizeLaptop(x){
     "Remarks":x["Remarks"]||x["Received From"]||""
   };
 }
-function App({onLogout}){
+function App({currentUser, onLogout}){
   const [laptops,setLaptops]=useState([]);
   const [movements,setMovements]=useState([]);
   const [loadingDb, setLoadingDb]=useState(true);
@@ -115,7 +131,7 @@ function App({onLogout}){
   function addLaptop(){
     setEditing({
       "Laptop ID":"LNK-"+String(laptops.length+1).padStart(3,"0"),
-      "Brand":"","Model":"","Serial Number":"","Configuration":"","Location":"Bangalore","Processor":"","Processor Gen":"",
+      "Brand":"","Model":"","Serial Number":"","Configuration":"","Location":currentUser.role === "Admin" ? "Bangalore" : currentUser.role,"Processor":"","Processor Gen":"",
       "RAM Slot 1 Size (GB)":"","RAM Slot 1 Type":"","RAM Slot 2 Size (GB)":"","RAM Slot 2 Type":"",
       "Storage 1 Capacity":"","Storage 1 Type":"","Storage 2 Capacity":"","Storage 2 Type":"",
       "Screen Size":"","Power Adapter Type":"","Battery Health (%)":"","Battery Cycle Count":"","Battery Backup Time":"",
@@ -172,6 +188,11 @@ function App({onLogout}){
     setEditingMovement(null);
   }
   const movementStatus=(type,current)=>type==="Sale"?"Sold":type==="Return"||type==="Receipt"?"In Stock":type==="Service"?"Service":current;
+  const canEdit = (laptop) => {
+    if (currentUser.role === "Admin") return true;
+    return currentUser.role === (laptop.Location || "Bangalore");
+  };
+
 
   return <div className="app">
     {loadingDb && <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(255,255,255,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999}}><h2>Loading Data from Database...</h2></div>}
@@ -184,19 +205,20 @@ function App({onLogout}){
         <button className={page==="condition"?"active":""} onClick={()=>setPage("condition")}><ClipboardCheck/>Add / Update Condition</button>
         <button className={page==="movements"?"active":""} onClick={()=>setPage("movements")}><ArrowLeftRight/>Stock Movement</button>
         <button className={page==="reports"?"active":""} onClick={()=>setPage("reports")}><FileText/>Reports</button>
+        {currentUser.role==="Admin" && <button className={page==="users"?"active":""} onClick={()=>setPage("users")}><Users/>User Management</button>}
       </nav>
       <div className="sideBottom"><small>Data is stored in this browser.</small><button onClick={onLogout}><LogOut/>Sign Out</button></div>
     </aside>
 
     <main>
-      <header><div><h1>{page==="dashboard"?"Inventory Dashboard":page==="laptops"?"Laptop Inventory":page==="add-laptop"?"Add Laptop":page==="condition"?"Add / Update Product Condition":page==="movements"?"Stock Movement":"Reports"}</h1><p>{page==="add-laptop"?"Record basic information, configuration and receipt details":page==="condition"?"Select a laptop and update its inspection results":"Refurbished laptop tracking & component health ledger"}</p></div>{page==="laptops"&&<button className="primary" onClick={addLaptop}><Plus/> Add Laptop</button>}{page==="movements"&&<button className="primary" onClick={()=>setShowMovement(true)}><Plus/> New Movement</button>}</header>
+      <header><div><h1>{page==="dashboard"?"Inventory Dashboard":page==="laptops"?"Laptop Inventory":page==="add-laptop"?"Add Laptop":page==="condition"?"Add / Update Product Condition":page==="movements"?"Stock Movement":page==="users"?"User Management":"Reports"}</h1><p>{page==="add-laptop"?"Record basic information, configuration and receipt details":page==="condition"?"Select a laptop and update its inspection results":page==="users"?"Manage system access, roles, and branch permissions":"Refurbished laptop tracking & component health ledger"}</p></div>{page==="laptops"&&<button className="primary" onClick={addLaptop}><Plus/> Add Laptop</button>}{page==="movements"&&<button className="primary" onClick={()=>setShowMovement(true)}><Plus/> New Movement</button>}</header>
 
       {page==="dashboard" && <Dashboard stats={stats} laptops={laptops} movements={movements} setPage={setPage}/>}
       {page==="laptops" && <section>
         <div className="toolbar"><div className="search"><Search/><input placeholder="Search ID, serial, brand, model..." value={query} onChange={e=>setQuery(e.target.value)}/></div>
         <select value={status} onChange={e=>setStatus(e.target.value)}><option>All</option><option>Need to be Checked</option><option>Spares Need to be Replaced</option><option>Sold</option><option>Scrap</option></select></div>
         <div className="tableWrap"><table><thead><tr><th>ID</th><th>Brand / Model</th><th>Serial</th><th>Processor</th><th>RAM</th><th>Storage</th><th>Battery</th><th>Location</th><th>Status</th><th></th></tr></thead>
-        <tbody>{filtered.map(x=><tr key={x["Laptop ID"]}><td><b>{x["Laptop ID"]}</b></td><td>{x.Brand}<br/><span>{x.Model}</span></td><td>{x["Serial Number"]}</td><td>{x.Processor}<br/><span>{x["Processor Gen"]}</span></td><td>{[x["RAM Slot 1 Size (GB)"],x["RAM Slot 2 Size (GB)"]].filter(Boolean).map(v=>String(v).includes("GB")?v:`${v}GB`).join(" + ")}</td><td>{x["Storage 1 Capacity"]} {x["Storage 1 Type"]}</td><td>{x["Battery Health (%)"]}%<br/><span>{x["Battery Backup Time"]}</span></td><td><span className="pill location">{x.Location||"Bangalore"}</span></td><td><span className="pill">{x["Stock Status"]||"Need to be Checked"}</span></td><td className="actions"><button title="Edit laptop entry" onClick={()=>{setEditing({...x,__originalId:x["Laptop ID"]});setPage("add-laptop")}}><Pencil/></button><button onClick={()=>removeLaptop(x["Laptop ID"])}><Trash2/></button></td></tr>)}</tbody></table></div>
+        <tbody>{filtered.map(x=><tr key={x["Laptop ID"]}><td><b>{x["Laptop ID"]}</b></td><td>{x.Brand}<br/><span>{x.Model}</span></td><td>{x["Serial Number"]}</td><td>{x.Processor}<br/><span>{x["Processor Gen"]}</span></td><td>{[x["RAM Slot 1 Size (GB)"],x["RAM Slot 2 Size (GB)"]].filter(Boolean).map(v=>String(v).includes("GB")?v:`${v}GB`).join(" + ")}</td><td>{x["Storage 1 Capacity"]} {x["Storage 1 Type"]}</td><td>{x["Battery Health (%)"]}%<br/><span>{x["Battery Backup Time"]}</span></td><td><span className="pill location">{x.Location||"Bangalore"}</span></td><td><span className="pill">{x["Stock Status"]||"Need to be Checked"}</span></td><td className="actions">{canEdit(x) && <><button title="Edit laptop entry" onClick={()=>{setEditing({...x,__originalId:x["Laptop ID"]});setPage("add-laptop")}}><Pencil/></button><button onClick={()=>removeLaptop(x["Laptop ID"])}><Trash2/></button></>}</td></tr>)}</tbody></table></div>
         <div className="count">{filtered.length} of {laptops.length} records</div>
       </section>}
 
@@ -205,13 +227,15 @@ function App({onLogout}){
       <div className="tableWrap"><table><thead><tr><th>Date</th><th>Laptop</th><th>Section</th><th>From</th><th>To</th><th>Reference</th><th>Amount / Payment</th><th>Remarks</th><th>Actions</th></tr></thead><tbody>
       {movements.filter(m=>Object.values(m).join(" ").toLowerCase().includes(query.toLowerCase())).map(m=><tr key={m.id}><td>{new Date(m.date).toLocaleString()}</td><td><b>{m.laptopId}</b></td><td><span className="pill movement">{m.type==="Sale"?"Sales":"Stock Transfer"}</span></td><td>{m.from}</td><td>{m.type==="Sale"?"—":m.to}</td><td>{m.reference||"—"}</td><td>{m.type==="Sale"?<><b>₹{Number(m.amount||0).toLocaleString("en-IN")}</b><br/><span>{m.paymentMode||"—"} · {m.paymentDate||"—"}</span></>:"—"}</td><td>{m.remarks||"—"}</td><td className="actions"><button title="Edit movement" onClick={()=>setEditingMovement(m)}><Pencil/></button><button title="View correction history" onClick={()=>setHistoryMovement(m)}><History/></button></td></tr>)}</tbody></table></div>
       {!movements.length&&<div className="empty">No stock movements yet. Click <b>New Movement</b> to record the first one.</div>}</section>}
-      {page==="add-laptop"&&editing&&<AddLaptopPage item={editing} onClose={()=>{setEditing(null);setPage("laptops")}} onSave={saveLaptop}/>} 
-      {page==="condition"&&<ConditionPage laptops={laptops} onSave={saveCondition}/>} 
-      {page==="reports"&&<Reports laptops={laptops} movements={movements} reportType={reportType} setReportType={setReportType}/>} 
+      {page==="add-laptop"&&editing&&<AddLaptopPage currentUser={currentUser} item={editing} onClose={()=>{setEditing(null);setPage("laptops")}} onSave={saveLaptop}/>} 
+      {page==="condition"&&<ConditionPage currentUser={currentUser} laptops={laptops} onSave={saveCondition}/>} 
+      {page==="reports"&&<Reports laptops={laptops} movements={movements} reportType={reportType} setReportType={setReportType}/>}
+      {page==="users" && currentUser.role === "Admin" && <UserManagementPage />}
+ 
     </main>
 
-    {showMovement&&<MovementModal laptops={laptops} onClose={()=>setShowMovement(false)} onSave={addMovement}/>}
-    {editingMovement&&<MovementModal item={editingMovement} laptops={laptops} onClose={()=>setEditingMovement(null)} onSave={saveMovement}/>}
+    {showMovement&&<MovementModal currentUser={currentUser} laptops={laptops} onClose={()=>setShowMovement(false)} onSave={addMovement}/>}
+    {editingMovement&&<MovementModal currentUser={currentUser} item={editingMovement} laptops={laptops} onClose={()=>setEditingMovement(null)} onSave={saveMovement}/>}
     {historyMovement&&<HistoryModal movement={historyMovement} onClose={()=>setHistoryMovement(null)}/>}
   </div>
 }
@@ -321,12 +345,13 @@ const options = {
 const optionalSecondSlotFields = new Set(["RAM Slot 2 Size (GB)","RAM Slot 2 Type","Storage 2 Capacity","Storage 2 Type"]);
 const mandatoryFields = new Set([...fieldGroups[0].fields,...fieldGroups[1].fields].filter(f=>!optionalSecondSlotFields.has(f)));
 
-function AddLaptopPage({item,onClose,onSave}){
+function AddLaptopPage({currentUser,item,onClose,onSave}){
  const [v,setV]=useState({...item});
  const update=(f,val)=>setV({...v,[f]:val});
  const control=(f)=>{
    const opts=options[f];
-   if(opts) return <select required={mandatoryFields.has(f)} value={v[f]??""} onChange={e=>update(f,e.target.value)}><option value="">Select...</option>{opts.map(o=><option key={o}>{o}</option>)}</select>;
+   const dis = (f==="Location" && currentUser.role !== "Admin");
+   if(opts) return <select disabled={dis} required={mandatoryFields.has(f)} value={v[f]??""} onChange={e=>update(f,e.target.value)}><option value="">Select...</option>{opts.map(o=><option key={o}>{o}</option>)}</select>;
    return <input required={mandatoryFields.has(f)} value={v[f]??""} onChange={e=>update(f,e.target.value)} placeholder={f==="Configuration"?"Type complete laptop description":f==="Power Adapter Type"?"e.g. 65W USB-C or 90W barrel":f==="Battery Health (%)"?"e.g. 88":f==="Battery Cycle Count"?"e.g. 142":""}/>;
  };
  const submit=()=>{const missing=[...mandatoryFields].filter(f=>String(v[f]??"").trim()==="");if(missing.length){alert(`Please complete all mandatory Basic Information and Configuration fields:\n\n${missing.join(", ")}`);return}onSave(v)};
@@ -334,7 +359,7 @@ function AddLaptopPage({item,onClose,onSave}){
  return <section className="editorPage"><div className="workflowNote"><b>Initial laptop entry</b><span>Enter the laptop and configuration now. Inspection and condition details can be completed later from Add / Update Product Condition.</span></div><div className="formSections"><div className="requiredNote">* All Basic Information and Configuration fields are mandatory. RAM Slot 2 and Storage 2 are optional.</div>{entryGroups.map(g=><div className="formSection" key={g.title}><h3>{g.title}{(g.title==="Basic Information"||g.title==="Configuration")&&<span className="requiredBadge">Required</span>}</h3><div className="formgrid">{g.fields.map(f=><label key={f}>{f}{mandatoryFields.has(f)&&<em>*</em>}{control(f)}</label>)}</div></div>)}</div><div className="pageActions"><button onClick={onClose}>Cancel</button><button className="primary" onClick={submit}><Save/> {item.Brand||item.Model?"Save Changes":"Add Laptop"}</button></div></section>
 }
 
-function ConditionPage({laptops,onSave}){
+function ConditionPage({currentUser,laptops,onSave}){
  const first=laptops[0];
  const [laptopId,setLaptopId]=useState(first?.["Laptop ID"]||"");
  const [v,setV]=useState(first?{...first}:null);
@@ -343,11 +368,12 @@ function ConditionPage({laptops,onSave}){
  const update=(f,val)=>{setV({...v,[f]:val});setSaved(false)};
  const conditionGroups=fieldGroups.filter(g=>["Battery","Performance & Hardware Tests","Keyboard / Input","Connectivity & Multimedia","Physical Condition"].includes(g.title));
  const control=f=>{const opts=options[f];return opts?<select value={v?.[f]??""} onChange={e=>update(f,e.target.value)}><option value="">Select...</option>{opts.map(o=><option key={o}>{o}</option>)}</select>:<input value={v?.[f]??""} onChange={e=>update(f,e.target.value)} placeholder={f==="Battery Health (%)"?"e.g. 88":f==="Battery Cycle Count"?"e.g. 142":""}/>};
- const submit=()=>{if(!v){alert("Please select a valid Laptop ID.");return}onSave(v);setSaved(true)};
+ const submit=()=>{if(!v){alert("Please select a valid Laptop ID.");return} if(currentUser.role !== "Admin" && currentUser.role !== (v.Location||"Bangalore")){alert("You can only modify condition for laptops in your branch.");return;}onSave(v);setSaved(true)};
  return <section className="editorPage"><div className="conditionSelector"><label>Laptop ID (type or select)<input list="condition-laptops" value={laptopId} onChange={e=>chooseLaptop(e.target.value)} placeholder="Type or select Laptop ID"/><datalist id="condition-laptops">{laptops.map(x=><option value={x["Laptop ID"]} key={x["Laptop ID"]}>{x.Brand} {x.Model}</option>)}</datalist></label>{v?<div className="identityGrid"><div><small>Brand</small><strong>{v.Brand||"—"}</strong></div><div><small>Model</small><strong>{v.Model||"—"}</strong></div><div><small>Configuration</small><strong>{v.Configuration||"—"}</strong></div></div>:<div className="empty">Select a valid Laptop ID to load its product condition.</div>}</div>{v&&<><div className="formSections">{conditionGroups.map(g=><div className="formSection" key={g.title}><h3>{g.title}</h3><div className="formgrid">{g.fields.map(f=><label key={f}>{f}{control(f)}</label>)}</div></div>)}</div><div className="pageActions">{saved&&<span className="saveSuccess">Product condition saved successfully.</span>}<button className="primary" onClick={submit}><Save/> Save Product Condition</button></div></>}</section>
 }
-function MovementModal({item,laptops,onClose,onSave}){
- const first=laptops.find(x=>(x["Stock Status"]||"In Stock")!=="Sold")||laptops[0];
+function MovementModal({currentUser,item,laptops,onClose,onSave}){
+ const filteredLaptops=laptops.filter(x=>(x["Stock Status"]||"In Stock")!=="Sold" && (currentUser.role === "Admin" || currentUser.role === (x.Location||"Bangalore")));
+ const first=filteredLaptops[0]||laptops[0];
  const initialLocation=first?.Location||"Bangalore";
  const [v,setV]=useState(item?{amount:"",paymentDate:"",paymentMode:"",remarks:"",reference:"",...item,type:item.type==="Sale"?"Sale":"Transfer",date:String(item.date).slice(0,16)}:{laptopId:first?.["Laptop ID"]||"",type:"Transfer",from:initialLocation,to:initialLocation==="Bangalore"?"Hosur":"Bangalore",reference:"",amount:"",paymentDate:"",paymentMode:"",remarks:"",date:new Date().toISOString().slice(0,16)});
  const selected=laptops.find(x=>x["Laptop ID"]===v.laptopId);
@@ -384,3 +410,91 @@ function HistoryModal({movement,onClose}){const entries=[...(movement.history||[
 function Modal({title,onClose,onSave,saveLabel="Save",children}){return <div className="overlay"><div className="modal"><div className="modalHead"><h2>{title}</h2><button onClick={onClose}><X/></button></div>{children}<div className="modalFoot"><button onClick={onClose}>Cancel</button><button className="primary" onClick={onSave}><Save/> {saveLabel}</button></div></div></div>}
 
 createRoot(document.getElementById("root")).render(<Root/>);
+
+
+function UserManagementPage() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState("Bangalore");
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  async function loadUsers() {
+    setLoading(true);
+    const dbUsers = await fetchUsersFromDB();
+    if(dbUsers) setUsers(dbUsers);
+    setLoading(false);
+  }
+
+  async function handleAddUser(e) {
+    e.preventDefault();
+    if(!username || !password) return alert("Username and password are required.");
+    const hash = await sha256(password);
+    const success = await upsertUserToDB({ username, password_hash: hash, role });
+    if(success) {
+      setUsername(""); setPassword(""); setRole("Bangalore");
+      loadUsers();
+    } else {
+      alert("Failed to add user. Ensure username is unique.");
+    }
+  }
+
+  async function handleDeleteUser(id) {
+    if(confirm("Delete this user?")) {
+      const success = await deleteUserFromDB(id);
+      if(success) loadUsers();
+    }
+  }
+
+  if(loading) return <div style={{padding:"30px"}}>Loading users...</div>;
+
+  return (
+    <section>
+      <div className="panel" style={{marginBottom: "20px"}}>
+        <div className="panelHead"><h3>Add / Reset User</h3></div>
+        <form onSubmit={handleAddUser} className="formgrid">
+          <label>Username<input value={username} onChange={e=>setUsername(e.target.value)} required/></label>
+          <label>Password<input type="password" value={password} onChange={e=>setPassword(e.target.value)} required/></label>
+          <label>Role
+            <select value={role} onChange={e=>setRole(e.target.value)}>
+              <option value="Bangalore">Bangalore Employee</option>
+              <option value="Hosur">Hosur Employee</option>
+              <option value="Admin">Admin</option>
+            </select>
+          </label>
+          <div className="full"><button className="primary"><Save/> Save User</button></div>
+        </form>
+      </div>
+
+      <div className="tableWrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Created At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {users.map(u => (
+              <tr key={u.id}>
+                <td><b>{u.username}</b></td>
+                <td><span className="pill">{u.role}</span></td>
+                <td>{new Date(u.created_at).toLocaleString()}</td>
+                <td className="actions">
+                  <button onClick={() => handleDeleteUser(u.id)} title="Delete User"><Trash2/></button>
+                </td>
+              </tr>
+            ))}
+            {users.length === 0 && <tr><td colSpan="4">No users found.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
