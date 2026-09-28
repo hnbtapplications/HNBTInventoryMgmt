@@ -289,7 +289,7 @@ function Reports({laptops,movements,reportType,setReportType}){
 const fieldGroups = [
  {title:"Basic Information", fields:["Laptop ID","Brand","Model","Serial Number","Configuration","Location"]},
  {title:"Configuration", fields:["Processor","Processor Gen","RAM Slot 1 Size (GB)","RAM Slot 1 Type","RAM Slot 2 Size (GB)","RAM Slot 2 Type","Storage 1 Capacity","Storage 1 Type","Storage 2 Capacity","Storage 2 Type","Screen Size","Power Adapter Type"]},
- {title:"Battery", fields:["Battery Health (%)","Battery Cycle Count","Battery Backup Time"]},
+ {title:"Battery and Power ON", fields:["Power ON Status","Battery Health (%)","Battery Cycle Count","Battery Backup Time"]},
  {title:"Performance & Hardware Tests", fields:["CPU Stress Test","RAM Diagnostics","Drive Health Status","Graphics Stability Test"]},
  {title:"Keyboard / Input", fields:["Keyboard Mechanical Check","Keyboard Backlight (Y/N)","Trackpad Responsiveness"]},
  {title:"Connectivity & Multimedia", fields:["HDMI","USB-A 2.0","USB-A 3.0","USB-C","USB-C Charging","USB-C Display","Headphone / Audio Jack","SD Card Reader","LAN / RJ45","Wi-Fi Connectivity","Bluetooth Pair Test","Webcam Functionality","Microphone Audio Quality","Internal Speakers Status"]},
@@ -311,6 +311,7 @@ const options = {
  "Storage 1 Capacity":["128GB","256GB","512GB","1TB","2TB","Other"],
  "Storage 2 Capacity":["128GB","256GB","512GB","1TB","2TB","Other"],
  "Screen Size":["11.6\"","12.5\"","13.3\"","13.6\"","14\"","15\"","15.6\"","16\"","17.3\"","Other"],
+ "Power ON Status":["Need to be checked","Charging Port Issue","Not Powering ON","Sometimes Charging","Working Fine"],
  "CPU Stress Test":["Passed","Failed","Not Tested","Re-test Required"],
  "RAM Diagnostics":["Passed","Failed","Not Tested","Re-test Required"],
  "Drive Health Status":["Passed (Healthy)","Passed","Warning","Failed","Not Tested","Re-test Required"],
