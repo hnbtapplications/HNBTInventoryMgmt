@@ -415,6 +415,10 @@ function MovementModal({currentUser,item,laptops,onClose,onSave}){
  const setType=(type)=>setV({...v,type,to:type==="Sale"?"":v.from==="Bangalore"?"Hosur":v.from==="Hosur"?"Bangalore":""});
  const submit=()=>{
    if(!selected){alert("Please select a valid Laptop ID.");return}
+   if(currentUser.role !== "Admin" && currentUser.role !== (selected.Location||"Bangalore")){
+     alert("You are not authorized to transfer or sell stock from another branch.");
+     return;
+   }
    if(v.type==="Transfer"&&!v.to){alert("Please select the destination location.");return}
    if(v.type==="Sale"&&(!v.reference||!v.amount||!v.paymentDate||!v.paymentMode)){alert("Please complete all Sales payment fields.");return}
    onSave({...v,to:v.type==="Sale"?"Customer":v.to});
@@ -422,7 +426,7 @@ function MovementModal({currentUser,item,laptops,onClose,onSave}){
  return <Modal title={item?"Edit Stock Movement":"New Stock Movement"} onClose={onClose} onSave={submit} saveLabel={item?"Save Correction":"Save Movement"}>
   <div className="movementTabs"><button type="button" className={v.type==="Transfer"?"active":""} onClick={()=>setType("Transfer")}>1. Stock Transfer</button><button type="button" className={v.type==="Sale"?"active":""} onClick={()=>setType("Sale")}>2. Sales</button></div>
   <div className="movementSection"><h3>{v.type==="Transfer"?"Stock Transfer Details":"Sales Details"}</h3><div className="formgrid">
-  <label>Laptop ID<input list="movement-laptops" value={v.laptopId} onChange={e=>chooseLaptop(e.target.value)} placeholder="Type Laptop ID, brand or model..."/><datalist id="movement-laptops">{laptops.filter(x=>(x["Stock Status"]||"In Stock")!=="Sold"||x["Laptop ID"]===v.laptopId).map(x=><option value={x["Laptop ID"]} key={x["Laptop ID"]}>{x.Brand} {x.Model} · {x.Location||"Bangalore"}</option>)}</datalist>{selected&&<small>{selected.Brand} {selected.Model} · Available at {selected.Location||"Bangalore"}</small>}</label>
+  <label>Laptop ID<input list="movement-laptops" value={v.laptopId} onChange={e=>chooseLaptop(e.target.value)} placeholder="Type Laptop ID, brand or model..."/><datalist id="movement-laptops">{laptops.filter(x=>((x["Stock Status"]||"In Stock")!=="Sold"||x["Laptop ID"]===v.laptopId) && (currentUser.role === "Admin" || currentUser.role === (x.Location||"Bangalore"))).map(x=><option value={x["Laptop ID"]} key={x["Laptop ID"]}>{x.Brand} {x.Model} · {x.Location||"Bangalore"}</option>)}</datalist>{selected&&<small>{selected.Brand} {selected.Model} · Available at {selected.Location||"Bangalore"}</small>}</label>
   {selected&&<div className="configurationPreview"><small>Configuration / Description</small><strong>{selected.Configuration||"No configuration description entered"}</strong></div>}
   <label>From<input value={v.from} disabled title="Automatically taken from the laptop's current location"/></label>
   {v.type==="Transfer"&&<label>To<select value={v.to} onChange={e=>setV({...v,to:e.target.value})}><option value="">Select destination</option><option disabled={v.from==="Bangalore"}>Bangalore</option><option disabled={v.from==="Hosur"}>Hosur</option></select></label>}
