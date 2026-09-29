@@ -1,13 +1,71 @@
 import React, {useMemo, useState, useEffect} from "react";
 import { fetchLaptopsFromDB, upsertLaptopToDB, deleteLaptopFromDB, fetchMovementsFromDB, upsertMovementToDB, authenticateUser, fetchUsersFromDB, upsertUserToDB, deleteUserFromDB } from "./supabase";
 import {createRoot} from "react-dom/client";
-import {LayoutDashboard, Laptop, ClipboardCheck, ArrowLeftRight, Search, Plus, Pencil, Trash2, Save, X, History, FileText, LogOut, LockKeyhole, Users, Download} from "lucide-react";
+import {LayoutDashboard, Laptop, ClipboardCheck, ArrowLeftRight, Search, Plus, Pencil, Trash2, Save, X, History, FileText, LogOut, LockKeyhole, Users, Download, ChevronDown} from "lucide-react";
 import "./styles.css";
 
 const companyLogo="/company-logo.png";
 const adminUsername="Hertznbytes";
 const adminPasswordHash="240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9";
 async function sha256(value){const bytes=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value));return [...new Uint8Array(bytes)].map(b=>b.toString(16).padStart(2,"0")).join("")}
+
+function SearchableDropdown({ options, value, onChange, placeholder }) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const ref = React.useRef(null);
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (ref.current && !ref.current.contains(event.target)) {
+        setOpen(false);
+        setSearch("");
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  const selectedLabel = options.find(o => o.value === value)?.label || "";
+  const display = open ? search : selectedLabel;
+  const filtered = options.filter(o => (o.label||"").toLowerCase().includes(search.toLowerCase()) || (o.value||"").toLowerCase().includes(search.toLowerCase()));
+
+  return (
+    <div ref={ref} className="searchableDropdown" style={{position: 'relative', width: '100%', minWidth: '220px'}}>
+      <div style={{position: 'relative', display: 'flex', alignItems: 'center'}}>
+        <input 
+          type="text" 
+          value={display} 
+          placeholder={placeholder} 
+          onChange={e => { setSearch(e.target.value); setOpen(true); if(!e.target.value) onChange(""); }} 
+          onFocus={() => { setOpen(true); setSearch(""); }} 
+          style={{width: '100%', paddingRight: '32px', cursor: open ? 'text' : 'pointer'}} 
+        />
+        <ChevronDown 
+          size={16} 
+          style={{position: 'absolute', right: '10px', color: '#68768a', cursor: 'pointer', pointerEvents: 'none'}} 
+        />
+      </div>
+      {open && (
+        <ul style={{
+          position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, zIndex: 1000, 
+          background: '#fff', border: '1px solid #dce3ec', borderRadius: '8px', 
+          maxHeight: '220px', overflowY: 'auto', margin: 0, padding: '4px', 
+          boxShadow: '0 10px 25px rgba(0,0,0,0.1)', listStyle: 'none'
+        }}>
+          {filtered.length > 0 ? filtered.map(o => (
+            <li 
+              key={o.value} 
+              onMouseDown={(e) => { e.preventDefault(); onChange(o.value); setOpen(false); setSearch(""); }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              style={{padding: '8px 12px', cursor: 'pointer', borderRadius: '5px', fontSize: '13px', color: '#1f2937', transition: 'background 0.1s'}}
+            >
+              {o.label}
+            </li>
+          )) : <li style={{padding: '8px 12px', fontSize: '12px', color: '#888'}}>No matches found.</li>}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 
 function LoginScreen({onLogin}){
@@ -309,7 +367,7 @@ function Reports({laptops,movements,reportType,setReportType}){
     <button className={reportType==="condition-search"?"active":""} onClick={()=>setReportType("condition-search")}>4. Condition-Based List</button>
     <button className="primary" onClick={exportCSV} style={{marginLeft:"auto", padding: "8px 16px", display:"flex", alignItems:"center", gap:"8px"}}><Download size={16}/> Export CSV</button>
    </div>
-  {reportType==="laptop-details"&&<div className="reportPanel"><div className="reportFilters"><label>Laptop ID<input list="report-laptops" value={laptopId} onChange={e=>setLaptopId(e.target.value)} placeholder="Type or search Laptop ID..."/></label><datalist id="report-laptops">{laptops.map(x=><option key={x["Laptop ID"]} value={x["Laptop ID"]}>{x.Brand} {x.Model}</option>)}</datalist></div>{laptop?<><div className="reportTitle"><div><h2>{laptop["Laptop ID"]} · {laptop.Brand} {laptop.Model}</h2><p>{laptop.Configuration||"No configuration description entered"}</p></div><span className="pill">{laptop["Stock Status"]||"In Stock"} · {laptop.Location||"Bangalore"}</span></div><div className="detailGrid">{detailFields.map(f=><div key={f}><small>{f}</small><strong>{laptop[f]!==""&&laptop[f]!=null?String(laptop[f]):"—"}</strong></div>)}</div></>:<div className="empty">Select a valid Laptop ID to display its complete details.</div>}</div>}
+  {reportType==="laptop-details"&&<div className="reportPanel"><div className="reportFilters"><label style={{overflow: 'visible'}}>Laptop ID<SearchableDropdown placeholder="Type or search Laptop ID..." value={laptopId} onChange={setLaptopId} options={laptops.map(x=>({value: x["Laptop ID"], label: `${x["Laptop ID"]} - ${x.Brand} ${x.Model}`}))} /></label></div>{laptop?<><div className="reportTitle"><div><h2>{laptop["Laptop ID"]} · {laptop.Brand} {laptop.Model}</h2><p>{laptop.Configuration||"No configuration description entered"}</p></div><span className="pill">{laptop["Stock Status"]||"In Stock"} · {laptop.Location||"Bangalore"}</span></div><div className="detailGrid">{detailFields.map(f=><div key={f}><small>{f}</small><strong>{laptop[f]!==""&&laptop[f]!=null?String(laptop[f]):"—"}</strong></div>)}</div></>:<div className="empty">Select a valid Laptop ID to display its complete details.</div>}</div>}
   {reportType==="sales-period"&&<div className="reportPanel"><div className="reportFilters"><label>From Date<input type="date" value={fromDate} onChange={e=>setFromDate(e.target.value)}/></label><label>To Date<input type="date" value={toDate} onChange={e=>setToDate(e.target.value)}/></label></div><div className="reportTitle"><h2>Sales from {fromDate} to {toDate}</h2><strong>₹{sales.reduce((sum,m)=>sum+Number(m.amount||0),0).toLocaleString("en-IN")}</strong></div><div className="tableWrap"><table><thead><tr><th>Date</th><th>Laptop ID</th><th>Description</th><th>From</th><th>Invoice</th><th>Amount</th><th>Payment</th><th>Remarks</th></tr></thead><tbody>{sales.map(m=>{const x=laptops.find(l=>l["Laptop ID"]===m.laptopId);return <tr key={m.id}><td>{new Date(m.date).toLocaleString()}</td><td><b>{m.laptopId}</b></td><td>{x?.Configuration||"—"}</td><td>{m.from}</td><td>{m.reference||"—"}</td><td><b>₹{Number(m.amount||0).toLocaleString("en-IN")}</b></td><td>{m.paymentMode||"—"}<br/><span>{m.paymentDate||"—"}</span></td><td>{m.remarks||"—"}</td></tr>})}</tbody></table></div>{!sales.length&&<div className="empty">No Sales movements found for this period.</div>}</div>}
   {reportType==="stock-location"&&<div className="reportPanel">{["Bangalore","Hosur"].map(location=>{const rows=inHand.filter(x=>(x.Location||"Bangalore")===location);return <div className="locationReport" key={location}><div className="reportTitle"><h2>{location} Stock in Hand</h2><span className="pill">{rows.length} laptop{rows.length===1?"":"s"}</span></div><div className="tableWrap"><table><thead><tr><th>Laptop ID</th><th>Brand / Model</th><th>Processor</th><th>RAM</th><th>Storage</th><th>Screen</th><th>Overall Remarks</th><th>Status</th></tr></thead><tbody>{rows.map(x=><tr key={x["Laptop ID"]}><td><b>{x["Laptop ID"]}</b></td><td>{x.Brand} {x.Model}</td><td>{x.Processor||"—"}<br/><span>{x["Processor Gen"]||""}</span></td><td>{[x["RAM Slot 1 Size (GB)"],x["RAM Slot 2 Size (GB)"]].filter(Boolean).map(v=>String(v).includes("GB")?v:`${v}GB`).join(" + ")||"—"}</td><td>{x["Storage 1 Capacity"]||"—"} {x["Storage 1 Type"]||""}</td><td>{x["Screen Size"]||"—"}</td><td>{x["Overall Remarks"]||"—"}</td><td>{x["Stock Status"]||"Need to be Checked"}</td></tr>)}</tbody></table></div>{!rows.length&&<div className="empty">No laptops currently available at {location}.</div>}</div>})}</div>}
   {reportType==="condition-search"&&<div className="reportPanel"><div className="conditionFilters"><label>Processor<select value={conditionProcessor} onChange={e=>setConditionProcessor(e.target.value)}><option value="">All Processors</option><option>Core i3</option><option>Core i5</option><option>Core i7</option></select></label><label>RAM Size<select value={conditionRam} onChange={e=>setConditionRam(e.target.value)}><option value="">All RAM Sizes</option><option value="4">4GB</option><option value="8">8GB</option><option value="16">16GB</option><option value="32">32GB</option></select></label><label>Storage Type<select value={conditionStorage} onChange={e=>setConditionStorage(e.target.value)}><option value="">All Storage Types</option><option>HDD</option><option>SATA SSD</option><option>NVMe SSD</option><option>eMMC</option></select></label><label>Defective Spare / Component<select value={conditionSpare} onChange={e=>setConditionSpare(e.target.value)}><option value="">All Conditions</option><option>Any Defective Spare</option>{spareFields.map(f=><option key={f}>{f}</option>)}</select></label></div>{(()=>{const working=conditionRows.filter(x=>!spareFields.some(f=>isDefective(x[f])));const defective=conditionRows.filter(x=>spareFields.some(f=>isDefective(x[f])));return <><div className="reportTitle"><h2>1. All Components Working Good</h2><span className="pill">{working.length} result{working.length===1?"":"s"}</span></div><div className="tableWrap"><table><thead><tr><th>Laptop ID</th><th>Brand / Model</th><th>Configuration</th><th>Processor</th><th>RAM</th><th>Storage</th><th>Location</th><th>Defective Spare / Condition</th><th>Status</th></tr></thead><tbody>{working.map(x=>{const defects=spareFields.filter(f=>isDefective(x[f]));return <tr key={x["Laptop ID"]}><td><b>{x["Laptop ID"]}</b></td><td>{x.Brand} {x.Model}</td><td>{x.Configuration||"—"}</td><td>{x.Processor||"—"}<br/><span>{x["Processor Gen"]||""}</span></td><td>{[x["RAM Slot 1 Size (GB)"],x["RAM Slot 2 Size (GB)"]].filter(Boolean).join(" + ")||"—"}</td><td>{x["Storage 1 Capacity"]} {x["Storage 1 Type"]}{x["Storage 2 Capacity"]?<><br/><span>{x["Storage 2 Capacity"]} {x["Storage 2 Type"]}</span></>:null}</td><td>{x.Location||"Bangalore"}</td><td>{defects.length?defects.map(f=><div key={f}><b>{f}:</b> {x[f]}</div>):"No defect recorded"}</td><td>{x["Stock Status"]||"Need to be Checked"}</td></tr>})}</tbody></table></div>{!working.length&&<div className="empty">No working laptops match the selected conditions.</div>}<div className="reportTitle" style={{marginTop:"2rem"}}><h2>2. Some Components Defective</h2><span className="pill">{defective.length} result{defective.length===1?"":"s"}</span></div><div className="tableWrap"><table><thead><tr><th>Laptop ID</th><th>Brand / Model</th><th>Configuration</th><th>Processor</th><th>RAM</th><th>Storage</th><th>Location</th><th>Defective Spare / Condition</th><th>Status</th></tr></thead><tbody>{defective.map(x=>{const defects=spareFields.filter(f=>isDefective(x[f]));return <tr key={x["Laptop ID"]}><td><b>{x["Laptop ID"]}</b></td><td>{x.Brand} {x.Model}</td><td>{x.Configuration||"—"}</td><td>{x.Processor||"—"}<br/><span>{x["Processor Gen"]||""}</span></td><td>{[x["RAM Slot 1 Size (GB)"],x["RAM Slot 2 Size (GB)"]].filter(Boolean).join(" + ")||"—"}</td><td>{x["Storage 1 Capacity"]} {x["Storage 1 Type"]}{x["Storage 2 Capacity"]?<><br/><span>{x["Storage 2 Capacity"]} {x["Storage 2 Type"]}</span></>:null}</td><td>{x.Location||"Bangalore"}</td><td>{defects.length?defects.map(f=><div key={f}><b>{f}:</b> {x[f]}</div>):"No defect recorded"}</td><td>{x["Stock Status"]||"Need to be Checked"}</td></tr>})}</tbody></table></div>{!defective.length&&<div className="empty">No defective laptops match the selected conditions.</div>}</>})()}</div>}
@@ -399,7 +457,7 @@ function ConditionPage({currentUser,laptops,onSave}){
  const conditionGroups=fieldGroups.filter(g=>["Battery and Power ON","Performance & Hardware Tests","Keyboard / Input","Connectivity & Multimedia","Physical Condition"].includes(g.title));
  const control=f=>{const opts=options[f];if(opts)return<select value={v?.[f]??""} onChange={e=>update(f,e.target.value)}><option value="">Select...</option>{opts.map(o=><option key={o}>{o}</option>)}</select>;if(f==="Overall Remarks")return<textarea value={v?.[f]??""} onChange={e=>update(f,e.target.value)} placeholder="Comments about the laptop condition"/>;return<input value={v?.[f]??""} onChange={e=>update(f,e.target.value)} placeholder={f==="Battery Health (%)"?"e.g. 88":f==="Battery Cycle Count"?"e.g. 142":""}/>};
  const submit=()=>{if(!v){alert("Please select a valid Laptop ID.");return} if(currentUser.role !== "Admin" && currentUser.role !== (v.Location||"Bangalore")){alert("You can only modify condition for laptops in your branch.");return;}onSave(v);setSaved(true)};
-  return <section className="editorPage"><div className="conditionSelector"><label>Laptop ID (type or select)<input list="condition-laptops" value={laptopId} onChange={e=>chooseLaptop(e.target.value)} placeholder="Type or select Laptop ID..."/><datalist id="condition-laptops">{laptops.map(x=><option value={x["Laptop ID"]} key={x["Laptop ID"]}>{x.Brand} {x.Model}</option>)}</datalist></label>{v?<div className="identityGrid"><div><small>Brand</small><strong>{v.Brand||"—"}</strong></div><div><small>Model</small><strong>{v.Model||"—"}</strong></div><div><small>Configuration</small><strong>{v.Configuration||"—"}</strong></div></div>:<div className="empty">Select a valid Laptop ID to load its product condition.</div>}</div>{v&&<><div className="formSections">{conditionGroups.map(g=><div className="formSection" key={g.title}><h3>{g.title}</h3><div className="formgrid">{g.fields.map(f=><label key={f} className={f==="Overall Remarks"?"full":""}>{f}{control(f)}</label>)}</div></div>)}</div><div className="pageActions">{saved&&<span className="saveSuccess">Product condition saved successfully.</span>}<button className="primary" onClick={submit}><Save/> Save Product Condition</button></div></>}</section>
+  return <section className="editorPage"><div className="conditionSelector"><label style={{overflow: 'visible'}}>Laptop ID (type or select)<SearchableDropdown placeholder="Type or select Laptop ID..." value={laptopId} onChange={chooseLaptop} options={laptops.map(x=>({value: x["Laptop ID"], label: `${x["Laptop ID"]} - ${x.Brand} ${x.Model}`}))} /></label>{v?<div className="identityGrid"><div><small>Brand</small><strong>{v.Brand||"—"}</strong></div><div><small>Model</small><strong>{v.Model||"—"}</strong></div><div><small>Configuration</small><strong>{v.Configuration||"—"}</strong></div></div>:<div className="empty">Select a valid Laptop ID to load its product condition.</div>}</div>{v&&<><div className="formSections">{conditionGroups.map(g=><div className="formSection" key={g.title}><h3>{g.title}</h3><div className="formgrid">{g.fields.map(f=><label key={f} className={f==="Overall Remarks"?"full":""}>{f}{control(f)}</label>)}</div></div>)}</div><div className="pageActions">{saved&&<span className="saveSuccess">Product condition saved successfully.</span>}<button className="primary" onClick={submit}><Save/> Save Product Condition</button></div></>}</section>
 }
 function MovementModal({currentUser,item,laptops,onClose,onSave}){
  const filteredLaptops=laptops.filter(x=>(x["Stock Status"]||"In Stock")!=="Sold" && (currentUser.role === "Admin" || currentUser.role === (x.Location||"Bangalore")));
@@ -427,7 +485,7 @@ function MovementModal({currentUser,item,laptops,onClose,onSave}){
  return <Modal title={item?"Edit Stock Movement":"New Stock Movement"} onClose={onClose} onSave={submit} saveLabel={item?"Save Correction":"Save Movement"}>
   <div className="movementTabs"><button type="button" className={v.type==="Transfer"?"active":""} onClick={()=>setType("Transfer")}>1. Stock Transfer</button><button type="button" className={v.type==="Sale"?"active":""} onClick={()=>setType("Sale")}>2. Sales</button></div>
   <div className="movementSection"><h3>{v.type==="Transfer"?"Stock Transfer Details":"Sales Details"}</h3><div className="formgrid">
-  <label>Laptop ID<input list="movement-laptops" value={v.laptopId} onChange={e=>chooseLaptop(e.target.value)} placeholder="Type Laptop ID, brand or model..."/><datalist id="movement-laptops">{laptops.filter(x=>((x["Stock Status"]||"In Stock")!=="Sold"||x["Laptop ID"]===v.laptopId) && (currentUser.role === "Admin" || currentUser.role === (x.Location||"Bangalore"))).map(x=><option value={x["Laptop ID"]} key={x["Laptop ID"]}>{x.Brand} {x.Model} · {x.Location||"Bangalore"}</option>)}</datalist>{selected&&<small>{selected.Brand} {selected.Model} · Available at {selected.Location||"Bangalore"}</small>}</label>
+  <label style={{overflow: 'visible'}}>Laptop ID<SearchableDropdown placeholder="Type Laptop ID, brand or model..." value={v.laptopId} onChange={chooseLaptop} options={laptops.filter(x=>((x["Stock Status"]||"In Stock")!=="Sold"||x["Laptop ID"]===v.laptopId) && (currentUser.role === "Admin" || currentUser.role === (x.Location||"Bangalore"))).map(x=>({value: x["Laptop ID"], label: `${x["Laptop ID"]} - ${x.Brand} ${x.Model} · ${x.Location||"Bangalore"}`}))} />{selected&&<small>{selected.Brand} {selected.Model} · Available at {selected.Location||"Bangalore"}</small>}</label>
   {selected&&<div className="configurationPreview"><small>Configuration / Description</small><strong>{selected.Configuration||"No configuration description entered"}</strong></div>}
   <label>From<input value={v.from} disabled title="Automatically taken from the laptop's current location"/></label>
   {v.type==="Transfer"&&<label>To<select value={v.to} onChange={e=>setV({...v,to:e.target.value})}><option value="">Select destination</option><option disabled={v.from==="Bangalore"}>Bangalore</option><option disabled={v.from==="Hosur"}>Hosur</option></select></label>}
