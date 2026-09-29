@@ -420,7 +420,7 @@ function MovementModal({currentUser,item,laptops,onClose,onSave}){
      return;
    }
    if(v.type==="Transfer"&&!v.to){alert("Please select the destination location.");return}
-   if(v.type==="Sale"&&(!v.reference||!v.amount||!v.paymentDate||!v.paymentMode)){alert("Please complete all Sales payment fields.");return}
+   if(v.type==="Sale"&&(!v.amount||!v.paymentMode)){alert("Please complete the Amount and Payment Mode fields.");return}
    onSave({...v,to:v.type==="Sale"?"Customer":v.to});
  };
  return <Modal title={item?"Edit Stock Movement":"New Stock Movement"} onClose={onClose} onSave={submit} saveLabel={item?"Save Correction":"Save Movement"}>
