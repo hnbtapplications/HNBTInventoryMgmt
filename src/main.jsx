@@ -196,8 +196,9 @@ function App(){
   useEffect(()=>localStorage.setItem("hb_categories",JSON.stringify(categories)),[categories]);
   useEffect(()=>localStorage.setItem("hb_units",JSON.stringify(units)),[units]);
 
-  // Initial fetch from Supabase Cloud on mount
+  // Fetch from Supabase Cloud whenever authenticated
   useEffect(() => {
+    if (authStatus !== "authenticated") return;
     async function loadCloudData() {
       if (!isSupabaseConfigured()) return;
       setIsCloudConnected(true);
@@ -224,7 +225,7 @@ function App(){
       }
     }
     loadCloudData();
-  }, []);
+  }, [authStatus]);
 
   // Set default ledger product once products load
   useEffect(() => {
@@ -386,22 +387,28 @@ function App(){
       return;
     }
 
-    const prods = await fetchProductsFromDB();
-    if (prods !== null) {
-      setCloudSyncMsg("✅ Connected successfully to Supabase! Cloud storage is active.");
-      if (prods.length > 0) {
+    try {
+      const [prods, movs, masters] = await Promise.all([
+        fetchProductsFromDB(),
+        fetchMovementsFromDB(),
+        fetchMastersFromDB()
+      ]);
+
+      if (Array.isArray(prods)) {
+        setCloudSyncMsg(`✅ Connected successfully to Supabase! Loaded ${prods.length} products and ${(movs || []).length} movements.`);
         setProducts(prods);
+        if (movs && movs.length > 0) setMovements(movs);
+        if (masters) {
+          if (masters.brands?.length) setBrands(masters.brands);
+          if (masters.categories?.length) setCategories(masters.categories);
+          if (masters.units?.length) setUnits(masters.units);
+        }
+      } else {
+        setCloudSyncMsg("⚠️ Could not reach tables in Supabase. Please ensure you ran supabase-schema.sql in your Supabase SQL Editor.");
       }
-      const movs = await fetchMovementsFromDB();
-      if (movs && movs.length > 0) setMovements(movs);
-      const masters = await fetchMastersFromDB();
-      if (masters) {
-        if (masters.brands?.length) setBrands(masters.brands);
-        if (masters.categories?.length) setCategories(masters.categories);
-        if (masters.units?.length) setUnits(masters.units);
-      }
-    } else {
-      setCloudSyncMsg("⚠️ Could not reach tables in Supabase. Please ensure you ran supabase-schema.sql in your Supabase SQL Editor.");
+    } catch (err) {
+      console.error(err);
+      setCloudSyncMsg(`❌ Connection error: ${err.message || "Failed to reach Supabase"}`);
     }
   }
 
@@ -414,6 +421,18 @@ function App(){
     setCloudSyncMsg("Syncing local products, movements, and masters to Supabase...");
     try {
       await syncAllLocalToDB({ products, movements, brands, categories, units });
+      const [cloudProds, cloudMovs, cloudMasters] = await Promise.all([
+        fetchProductsFromDB(),
+        fetchMovementsFromDB(),
+        fetchMastersFromDB()
+      ]);
+      if (Array.isArray(cloudProds)) setProducts(cloudProds);
+      if (Array.isArray(cloudMovs)) setMovements(cloudMovs);
+      if (cloudMasters) {
+        if (cloudMasters.brands?.length) setBrands(cloudMasters.brands);
+        if (cloudMasters.categories?.length) setCategories(cloudMasters.categories);
+        if (cloudMasters.units?.length) setUnits(cloudMasters.units);
+      }
       setCloudSyncMsg(`✅ Successfully synced ${products.length} products and ${movements.length} movements to Supabase Cloud!`);
     } catch (err) {
       console.error(err);
