@@ -7,6 +7,38 @@ export default async function handler(req,res){res.setHeader("Cache-Control","no
  if(req.method==="GET"&&op==="masters")return res.json({brands:(await rest("brands?select=name")||[]).map(x=>x.name),categories:(await rest("categories?select=name")||[]).map(x=>x.name),units:(await rest("units?select=name")||[]).map(x=>x.name)});
  if(req.method==="GET"&&op==="audit"){if(!perm(s,"can_view_audit_logs"))return res.status(403).json({error:"Not permitted"});let q="audit_logs?select=*&order=created_at.desc&limit=500";if(s.role!=="admin"&&s.branch!=="Both")q+=`&branch=eq.${encodeURIComponent(s.branch)}`;return res.json(await rest(q)||[])}
  if(req.method!=="POST")return res.status(405).json({error:"Method not allowed"});const b=req.body||{};
+ if(op==="sync-all"){
+   if(!perm(s,"can_manage_products")&&!perm(s,"can_stock_movement")&&s.role!=="admin")return res.status(403).json({error:"Permission required to sync inventory"});
+   const {products=[],movements=[],brands=[],categories=[],units=[]}=b;
+   if(brands.length){
+     const brandPayload=brands.map(name=>({name:String(name).trim()})).filter(x=>x.name);
+     if(brandPayload.length) await rest("brands?on_conflict=name",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(brandPayload)}).catch(console.error);
+   }
+   if(categories.length){
+     const catPayload=categories.map(name=>({name:String(name).trim()})).filter(x=>x.name);
+     if(catPayload.length) await rest("categories?on_conflict=name",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(catPayload)}).catch(console.error);
+   }
+   if(units.length){
+     const unitPayload=units.map(name=>({name:String(name).trim()})).filter(x=>x.name);
+     if(unitPayload.length) await rest("units?on_conflict=name",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(unitPayload)}).catch(console.error);
+   }
+   let syncedCount=0;
+   if(products.length){
+     const prodPayload=products.map(p=>cleanProduct(p)).filter(p=>p.id&&p.name);
+     if(prodPayload.length){
+       await rest("products?on_conflict=id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(prodPayload)}).catch(console.error);
+       syncedCount=prodPayload.length;
+     }
+   }
+   if(movements.length){
+     const movPayload=movements.map(m=>cleanMovement(m)).filter(m=>m.id&&m.product&&m.qty>0);
+     if(movPayload.length){
+       await rest("movements?on_conflict=id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(movPayload)}).catch(console.error);
+     }
+   }
+   await audit(s,{action:"BULK_SYNC",entity_type:"inventory",entity_id:"sync",entity_name:"Bulk Sync",branch:s.branch||"Both",details:`Synced ${syncedCount} products and ${movements.length} movements`}).catch(console.error);
+   return res.json({ok:true,syncedProducts:syncedCount,syncedMovements:movements.length});
+ }
  if(op==="product-upsert"){if(!perm(s,"can_manage_products"))return res.status(403).json({error:"Product management permission required"});const p=cleanProduct(b.product||{});if(!p.id||!p.name)return res.status(400).json({error:"Product ID and name are required"});const old=(await rest(`products?id=eq.${encodeURIComponent(p.id)}&select=*`))[0]||null;if(s.role!=="admin"&&s.branch!=="Both"){const other=s.branch==="Hosur"?"bangalore":"hosur";p[other]=old?.[other]||0}await rest("products?on_conflict=id",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(p)});await audit(s,{action:old?"PRODUCT_UPDATED":"PRODUCT_ADDED",entity_type:"product",entity_id:p.id,entity_name:p.name,branch:s.branch||"Both",old_value:old,new_value:p,details:old?"Product updated":"Product added"});return res.json({ok:true})}
  if(op==="product-delete"){if(!perm(s,"can_manage_products"))return res.status(403).json({error:"Product management permission required"});if(s.role!=="admin"&&s.branch!=="Both")return res.status(403).json({error:"Only users with Both-branch access or Administrator can delete a product catalog item"});const id=String(b.id||"");if(!id)return res.status(400).json({error:"Product ID required"});const old=(await rest(`products?id=eq.${encodeURIComponent(id)}&select=*`))[0]||null;if(!old)return res.status(404).json({error:"Product not found"});await rest(`products?id=eq.${encodeURIComponent(id)}`,{method:"DELETE",headers:{Prefer:"return=minimal"}});await audit(s,{action:"PRODUCT_DELETED",entity_type:"product",entity_id:id,entity_name:old.name||id,branch:s.branch||"Both",old_value:old,details:"Product deleted"});return res.json({ok:true})}
  if(op==="movement-upsert"){
